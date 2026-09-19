@@ -8,6 +8,24 @@ import type { Lesson, KhdhContent } from '@/types/khdh';
 
 type Step = 'upload' | 'review' | 'preview';
 
+// Vercel giới hạn cứng 4.5MB cho request body của mọi Serverless Function
+// (Hobby lẫn Pro) — chặn sớm ở client với ngưỡng an toàn hơn (đa phần
+// Phụ lục I dạng .docx/.pdf thuần bảng chữ chỉ vài trăm KB; file to thường do
+// nhúng ảnh/nền không cần thiết).
+const MAX_UPLOAD_MB = 4;
+
+/** Đọc JSON response an toàn: một số lỗi hạ tầng (413, 502...) trả về HTML/text
+ * thay vì JSON, nếu gọi res.json() trực tiếp sẽ ném lỗi parse khó hiểu. */
+async function safeJson(res: Response): Promise<any> {
+  const text = await res.text();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { error: `Máy chủ trả về lỗi không mong đợi (HTTP ${res.status}). Vui lòng thử lại.` };
+  }
+}
+
 export default function DashboardApp({ userEmail }: { userEmail: string }) {
   const [step, setStep] = useState<Step>('upload');
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +54,17 @@ export default function DashboardApp({ userEmail }: { userEmail: string }) {
   async function handleFile(file: File) {
     setError(null);
     setWarnings([]);
+
+    const sizeMb = file.size / (1024 * 1024);
+    if (sizeMb > MAX_UPLOAD_MB) {
+      setError(
+        `File "${file.name}" nặng ${sizeMb.toFixed(1)}MB, vượt giới hạn ${MAX_UPLOAD_MB}MB cho phép. ` +
+          'Hãy xuất lại Phụ lục I dưới dạng file .docx chỉ chứa bảng chữ (bỏ ảnh nền/ảnh chèn không cần thiết), ' +
+          'hoặc tách file theo từng học kỳ rồi tải lên từng phần.'
+      );
+      return;
+    }
+
     setUploading(true);
     try {
       const formData = new FormData();
@@ -44,7 +73,7 @@ export default function DashboardApp({ userEmail }: { userEmail: string }) {
       formData.append('grade', grade);
 
       const res = await fetch('/api/ppct/parse', { method: 'POST', body: formData });
-      const data = await res.json();
+      const data = await safeJson(res);
       if (!res.ok) throw new Error(data.error || 'Có lỗi khi xử lý file.');
 
       setUploadId(data.uploadId);
@@ -105,7 +134,7 @@ export default function DashboardApp({ userEmail }: { userEmail: string }) {
           ppctUploadId: uploadId
         })
       });
-      const data = await res.json();
+      const data = await safeJson(res);
       if (!res.ok) throw new Error(data.error || 'Có lỗi khi tạo KHDH.');
       setKhdhId(data.id);
       setContent(data.content);
@@ -128,7 +157,7 @@ export default function DashboardApp({ userEmail }: { userEmail: string }) {
         body: JSON.stringify(khdhId ? { id: khdhId } : { content })
       });
       if (!res.ok) {
-        const data = await res.json();
+        const data = await safeJson(res);
         throw new Error(data.error || 'Có lỗi khi xuất file Word.');
       }
       const blob = await res.blob();
@@ -196,7 +225,10 @@ export default function DashboardApp({ userEmail }: { userEmail: string }) {
               <div style={{ fontWeight: 600, marginBottom: 4 }}>
                 Kéo thả file Phụ lục I / PPCT (.docx hoặc .pdf) vào đây
               </div>
-              <div className="muted">hoặc bấm để chọn file từ máy tính</div>
+              <div className="muted">
+                hoặc bấm để chọn file từ máy tính · tối đa {MAX_UPLOAD_MB}MB · ưu tiên .docx để bóc tách chính xác
+                nhất
+              </div>
             </>
           )}
           <input
@@ -221,9 +253,19 @@ export default function DashboardApp({ userEmail }: { userEmail: string }) {
           </div>
         )}
 
-        {lessons.length > 0 && step === 'upload' && (
-          <button className="btn btn-secondary" style={{ marginTop: 10 }} onClick={() => setStep('review')}>
-            Xem danh sách bài học đã bóc tách →
+        {uploadId && (
+          <button
+            className="btn btn-secondary"
+            style={{ marginTop: 10 }}
+            onClick={() => {
+              setUploadId(null);
+              setLessons([]);
+              setSelectedIndex(null);
+              setStep('upload');
+              if (fileInputRef.current) fileInputRef.current.value = '';
+            }}
+          >
+            ↺ Đặt lại, tải file PPCT khác
           </button>
         )}
       </div>

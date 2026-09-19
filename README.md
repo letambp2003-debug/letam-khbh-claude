@@ -133,10 +133,33 @@ trang chuẩn A4 (trái 3cm để đóng file, phải/trên/dưới 2cm), tiêu 
 màu đen (không dùng màu xanh mặc định của Word để tránh in ra bị xám), không
 chèn ngắt trang thừa giữa các mục — tối ưu số trang khi in hai mặt.
 
+## Độ ổn định khi chạy trên Vercel
+
+- **Giới hạn cứng 4.5MB/request** áp dụng cho mọi Serverless Function của
+  Vercel (kể cả gói Pro trả phí) — không thể nâng bằng cấu hình. App đã chặn
+  ở giao diện với ngưỡng 4MB và báo lỗi rõ ràng, kèm gợi ý xử lý (bỏ ảnh nền
+  trong Phụ lục I, hoặc tách file theo học kỳ) thay vì để giáo viên gặp lỗi
+  máy chủ khó hiểu.
+- **Thời gian chạy hàm**: mặc định 300 giây (5 phút) cho cả gói Free lẫn
+  Pro — đủ dư cho việc gọi AI + dịch công thức Toán, không cần nâng cấp gói.
+- **Lưu trữ là "best-effort"**: nếu Postgres chưa cấu hình hoặc lỗi tạm
+  thời, tính năng bóc tách PPCT và soạn KHDH bằng AI **vẫn hoạt động bình
+  thường** (giáo viên vẫn xem trước và tải file Word về được), chỉ mất khả
+  năng lưu lại lịch sử để mở lại sau. Lỗi DB không làm sập toàn bộ luồng.
+- Toàn bộ pipeline công thức Toán (LaTeX → OMML) đã được kiểm thử với hơn 25
+  mẫu công thức (phân số, căn, tích phân, giới hạn, ma trận, vector, hệ
+  phương trình, hoá học...) và cả input lỗi cú pháp cố ý — không có trường
+  hợp nào làm hỏng file Word xuất ra.
+
 ## Giới hạn của bản MVP & hướng mở rộng
 
 - Bóc tách PDF theo heuristic dòng văn bản (không giữ cấu trúc bảng như PDF
   gốc); khuyến nghị dùng file `.docx` để có độ chính xác cao nhất, đúng như
-  lưu ý "Auto-Purge Cache" trong quy trình gốc.
+  lưu ý "Auto-Purge Cache" trong quy trình gốc. Nút **"Đặt lại, tải file PPCT
+  khác"** trên giao diện tương ứng đúng thao tác "Reset Source" mô tả trong
+  quy trình gốc khi PPCT bị lệch dòng.
+- Công thức chứa dấu `$` không phải LaTeX (ví dụ lỡ ghi giá tiền kiểu
+  `5$`) có thể bị hiểu nhầm là mở đầu công thức — trường hợp này rất hiếm khi
+  soạn giáo án tiếng Việt (dùng đơn vị VNĐ) nên chưa xử lý riêng.
 - Chưa có giao diện Tổ trưởng/BGH duyệt 2 lớp (Dual Audit) và bảng KPI —
   đây là hướng phát triển tiếp theo khi nhân rộng ra toàn trường/Phòng/Sở.
