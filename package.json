@@ -1,0 +1,36 @@
+{
+  "name": "khdh-webapp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Trợ lý số soạn Kế hoạch dạy học (KHDH) chuẩn Công văn 5512 - Form V11-2",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:init": "tsx scripts/init-db.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
+    "@vercel/postgres": "^0.10.0",
+    "cheerio": "^1.0.0",
+    "docx": "^9.1.1",
+    "mammoth": "^1.8.0",
+    "next": "14.2.35",
+    "next-auth": "^4.24.10",
+    "pdf-parse": "^1.1.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "uuid": "^11.0.3",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/pdf-parse": "^1.1.4",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@types/uuid": "^10.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
