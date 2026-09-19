@@ -103,6 +103,36 @@ trong `lib/db/client.ts`) — không cần chạy migration thủ công.
 3. Bấm **"Tạo KHDH (Form V11-2)"** → AI soạn đủ 4 hoạt động theo Công văn
    5512 → xem trước → bấm **"Xuất File Word (.docx)"** để tải về nộp duyệt.
 
+## Công thức Toán: chuẩn MATH_CANONICAL → KaTeX (preview) → OMML (Word)
+
+AI luôn sinh công thức theo đúng 1 định dạng nguồn duy nhất — LaTeX bọc trong
+`$...$` (trong dòng) hoặc `$$...$$` (tách dòng) — sau đó hệ thống tự dịch
+sang 2 dạng hiển thị, dùng chung một bộ phân tích (`lib/khdh/content.ts`):
+
+- **Xem trước trên web**: dịch sang **KaTeX** (`components/MathText.tsx`),
+  hiển thị công thức đẹp ngay trong trình duyệt trước khi xuất file.
+- **File Word xuất ra**: dịch sang **OMML native** — công thức Word "xịn",
+  không phải ảnh, không còn ký tự `$`/LaTeX thô nào trong file `.docx`. Giáo
+  viên bấm đúp vào công thức trong Word là mở được Equation Editor để sửa
+  trực tiếp. Pipeline: LaTeX → MathML (MathJax) → OMML (`mathml2omml-plus`),
+  tương đương transform `MML2OMML.XSL` chính thức của Microsoft.
+- Hình vẽ Toán chính xác (TikZ) và ảnh minh hoạ (prompt tạo ảnh) được AI đặt
+  theo đúng khuôn mẫu `Code TikZ / Overleaf:` /  `Prompt tạo ảnh:` kèm khối
+  mã fenced, hiển thị thành khối riêng biệt (nền xám cho TikZ, nền xanh nhạt
+  cho prompt ảnh) ở cả preview lẫn file Word — giáo viên copy mã TikZ sang
+  Overleaf để biên dịch hình, hoặc dùng prompt để tạo ảnh minh hoạ bằng công
+  cụ AI ảnh tuỳ chọn.
+- Nếu 1 công thức LaTeX bị lỗi cú pháp, hệ thống không làm hỏng cả file —
+  công thức lỗi được hiển thị màu đỏ kèm nguyên văn để giáo viên tự sửa lại.
+
+## Thể thức & tiết kiệm giấy khi in
+
+File Word xuất ra tuân theo thể thức văn bản chuyên môn: font Times New
+Roman, cỡ 13pt thân bài / 12pt trong bảng, giãn dòng đơn, căn đều 2 lề, lề
+trang chuẩn A4 (trái 3cm để đóng file, phải/trên/dưới 2cm), tiêu đề in đậm
+màu đen (không dùng màu xanh mặc định của Word để tránh in ra bị xám), không
+chèn ngắt trang thừa giữa các mục — tối ưu số trang khi in hai mặt.
+
 ## Giới hạn của bản MVP & hướng mở rộng
 
 - Bóc tách PDF theo heuristic dòng văn bản (không giữ cấu trúc bảng như PDF
@@ -110,7 +140,3 @@ trong `lib/db/client.ts`) — không cần chạy migration thủ công.
   lưu ý "Auto-Purge Cache" trong quy trình gốc.
 - Chưa có giao diện Tổ trưởng/BGH duyệt 2 lớp (Dual Audit) và bảng KPI —
   đây là hướng phát triển tiếp theo khi nhân rộng ra toàn trường/Phòng/Sở.
-- Công thức Toán được AI trả về theo chuẩn LaTeX (`$...$`, `$$...$$`) và mã
-  hình vẽ TikZ được giữ nguyên dạng text trong file Word (do Word không tự
-  render LaTeX/TikZ); giáo viên copy đoạn mã này sang Overleaf để xuất hình,
-  hoặc dùng Equation Editor của Word để nhập lại công thức.

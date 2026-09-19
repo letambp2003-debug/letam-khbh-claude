@@ -26,11 +26,23 @@ QUY TẮC FORM V11-2 FINAL:
      "Bước 1. Chuyển giao nhiệm vụ", "Bước 2. Thực hiện nhiệm vụ", "Bước 3. Báo cáo, thảo luận", "Bước 4. Kết luận, nhận định"
      Mỗi bước có 2 nội dung: teacherAndStudent (hoạt động của GV và HS) và expectedProduct (sản phẩm dự kiến tương ứng với bước đó).
 
-4) QUY TẮC HÌNH VẼ / CÔNG THỨC TOÁN (áp dụng khi môn học có nội dung định lượng/hình học, đặc biệt môn Toán, KHTN, Vật lý...)
-- Công thức toán: dùng chuẩn LaTeX, công thức trong dòng đặt trong $...$, công thức riêng dòng đặt trong $$...$$.
-- Hình vẽ toán chính xác (hình học, đồ thị, sơ đồ số liệu): chèn ngay dưới đoạn nội dung liên quan trong mục b) Nội dung một khối mã bắt đầu bằng dòng "TIKZ:" theo sau là mã code TikZ/LaTeX (Overleaf) vẽ đúng hình mô tả.
-- Ảnh minh hoạ thực tế (bối cảnh, tình huống): chèn ngay dưới đoạn nội dung liên quan một dòng bắt đầu bằng "PROMPT_ANH:" theo sau là prompt mô tả ảnh cần tạo (tiếng Việt, chi tiết, phong cách giáo dục, rõ ràng, không chứa văn bản chữ trong ảnh).
-- Không lạm dụng: chỉ chèn TIKZ/PROMPT_ANH khi thực sự cần minh hoạ hình học/thực tế cho bài toán, không chèn cho mọi mục.
+4) QUY TẮC CÔNG THỨC TOÁN & HÌNH VẼ (MATH_CANONICAL — áp dụng mọi môn có nội dung định lượng: Toán, KHTN, Vật lý, Công nghệ...)
+- MATH_CANONICAL: công thức toán CHỈ được viết bằng LaTeX chuẩn, bọc trong đúng 2 kiểu dấu phân cách sau, KHÔNG dùng kiểu nào khác (không dùng \\(...\\), không dùng \\[...\\], không để công thức trần không có dấu $):
+  • Công thức trong dòng: $...$  (ví dụ: diện tích $S = xy$)
+  • Công thức tách riêng dòng: $$...$$ (chỉ dùng khi công thức là kết quả/kết luận quan trọng cần nổi bật, đặt trên một dòng riêng, không có chữ nào khác chung dòng đó)
+- Hệ quả downstream: toàn bộ $...$/$$...$$ sẽ được hệ thống tự động dịch sang OMML (công thức Word gốc, có thể bấm sửa trực tiếp trong Word) và sang KaTeX khi xem trước trên web — vì vậy TUYỆT ĐỐI không tự ý chèn ảnh công thức, không mô tả công thức bằng lời thay vì viết LaTeX, không dùng ký tự Unicode toán học rời rạc (như ², √, ×) để thay thế cho cú pháp LaTeX.
+- Hình vẽ Toán chính xác (hình học, đồ thị, sơ đồ, bảng biến thiên): đặt NGAY DƯỚI đoạn nội dung liên quan trong mục b) Nội dung, theo đúng khuôn mẫu (nhãn + khối mã fenced 3 dấu backtick):
+Code TikZ / Overleaf:
+\`\`\`tikz
+<mã TikZ/Overleaf đầy đủ, biên dịch được, đúng dữ kiện bài toán>
+\`\`\`
+- Ảnh minh hoạ thực tế (bối cảnh, tình huống đời sống — KHÔNG dùng cho hình học chính xác): đặt NGAY DƯỚI đoạn nội dung liên quan theo đúng khuôn mẫu:
+Prompt tạo ảnh:
+\`\`\`text
+<mô tả ảnh chi tiết bằng tiếng Việt: chủ thể, bối cảnh, bố cục, phong cách giáo dục hiện đại, giữ đúng dữ kiện, ưu tiên không có chữ trong ảnh>
+\`\`\`
+- Nếu một nội dung cần cả hai, viết theo đúng thứ tự: Nội dung → khối TikZ → khối Prompt ảnh.
+- Không lạm dụng: chỉ chèn TikZ/Prompt ảnh khi thực sự cần minh hoạ hình học/thực tế cho đúng bài toán đang xét, không chèn cho mọi mục, không bịa dữ kiện khác với đề bài.
 
 5) PHẦN IV. HƯỚNG DẪN VỀ NHÀ
 - Gồm các gạch đầu dòng: ghi nhớ nội dung trọng tâm, bài tập cần hoàn thành (nêu cụ thể nếu có SGK/số bài), chuẩn bị cho bài học tiếp theo.
@@ -39,7 +51,12 @@ QUY TẮC FORM V11-2 FINAL:
 6) TÍNH THỰC TẾ VÀ ĐẶC THÙ MÔN HỌC
 - Nội dung phải bám sát ĐÚNG tên bài học và Yêu cầu cần đạt (YCCĐ) được cung cấp, đúng cấp học/lớp, đúng thời lượng số tiết.
 - Với môn có đặc thù riêng (Tiếng Anh: Language Focus/Skills; KHTN: Thí nghiệm/Thực hành; Lịch sử-Địa lý: Bản đồ/Tư liệu...) hãy lồng ghép tự nhiên vào các mục Nội dung/Sản phẩm/Tổ chức thực hiện phù hợp, không bắt buộc tạo thêm phần ngoài 4 phần A-B-C-D.
-- Giọng văn chuyên môn sư phạm, súc tích, đúng thuật ngữ Chương trình GDPT 2018.
+
+7) VĂN PHONG & THỂ THỨC VĂN BẢN (để bản Word xuất ra chuyên nghiệp, tiết kiệm giấy khi in)
+- Giọng văn chuyên môn sư phạm, khách quan, súc tích; đúng chính tả và thuật ngữ Chương trình GDPT 2018; không dùng văn nói, không viết tắt tuỳ tiện, không thêm bình luận/lời chào ngoài lề.
+- Mỗi gạch đầu dòng (Kiến thức/Năng lực/Phẩm chất/Thiết bị/Hướng dẫn về nhà) viết thành 1 câu hoàn chỉnh, ngắn gọn, không lặp ý giữa các gạch đầu dòng, không thừa từ đệm.
+- Trong mục b) Nội dung và c) Sản phẩm: trình bày mạch lạc theo đúng trình tự tư duy (đề bài → dữ kiện → yêu cầu), tránh đoạn văn quá dài; có thể tách nhiều dòng ngắn thay vì 1 đoạn văn dài để bản Word dễ đọc và không lãng phí không gian dòng.
+- Không chèn dòng trống thừa, không lặp lại tiêu đề bài học nhiều lần, không kéo dài nội dung chỉ để "cho đủ chữ" — ưu tiên nội dung súc tích, đúng trọng tâm để bản KHDH gọn, tiết kiệm số trang khi in.
 
 Bạn PHẢI trả lời bằng đúng một đối tượng JSON theo schema đã cho trong hướng dẫn của người dùng, không kèm giải thích, không kèm markdown code fence.`;
 
@@ -72,6 +89,7 @@ export function buildKhdhUserPrompt(params: {
 ${params.requirement || '(không có, hãy tự suy luận hợp lý theo tên bài học, môn học và lớp)'}
 """
 ${params.extraNotes ? `- Ghi chú thêm từ giáo viên: ${params.extraNotes}\n` : ''}
+Nhắc lại: mọi công thức toán dùng $...$ / $$...$$ (MATH_CANONICAL), hình vẽ chính xác dùng khối \`\`\`tikz sau nhãn "Code TikZ / Overleaf:", ảnh minh hoạ dùng khối \`\`\`text sau nhãn "Prompt tạo ảnh:".
 
 Trả về DUY NHẤT một đối tượng JSON đúng theo schema TypeScript sau (không thêm trường khác, không thêm chú thích):
 

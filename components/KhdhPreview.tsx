@@ -1,12 +1,30 @@
 'use client';
 
 import type { KhdhContent } from '@/types/khdh';
+import MathText from '@/components/MathText';
 
-function Block({ label, text }: { label: string; text: string }) {
+function BulletBlock({ label, items }: { label: string; items: string[] }) {
+  return (
+    <div style={{ marginBottom: 10 }}>
+      {label && <div style={{ fontWeight: 600, fontSize: 13 }}>{label}</div>}
+      <ul style={{ margin: '4px 0', paddingLeft: 20 }}>
+        {items.map((item, i) => (
+          <li key={i} style={{ fontSize: 13.5, marginBottom: 2 }}>
+            <MathText text={item} />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function TextBlock({ label, text }: { label: string; text: string }) {
   return (
     <div style={{ marginBottom: 10 }}>
       <div style={{ fontWeight: 600, fontSize: 13 }}>{label}</div>
-      <div style={{ whiteSpace: 'pre-wrap', fontSize: 13.5 }}>{text}</div>
+      <div style={{ fontSize: 13.5 }}>
+        <MathText text={text} />
+      </div>
     </div>
   );
 }
@@ -27,16 +45,16 @@ export default function KhdhPreview({ content }: { content: KhdhContent }) {
       </div>
 
       <div className="section-title">I. Mục tiêu</div>
-      <Block label="1. Kiến thức" text={content.goals.knowledge.map((k) => `• ${k}`).join('\n')} />
-      <Block label="2. Năng lực" text={content.goals.competencies.map((k) => `• ${k}`).join('\n')} />
-      <Block
+      <BulletBlock label="1. Kiến thức" items={content.goals.knowledge} />
+      <BulletBlock label="2. Năng lực" items={content.goals.competencies} />
+      <BulletBlock
         label="3. Phẩm chất"
-        text={content.goals.qualities.map((q) => `• ${q.name}: ${q.behavior}`).join('\n')}
+        items={content.goals.qualities.map((q) => `${q.name}: ${q.behavior}`)}
       />
 
       <div className="section-title">II. Thiết bị dạy học và học liệu</div>
-      <Block label="1. Giáo viên" text={content.equipment.teacher.map((k) => `• ${k}`).join('\n')} />
-      <Block label="2. Học sinh" text={content.equipment.student.map((k) => `• ${k}`).join('\n')} />
+      <BulletBlock label="1. Giáo viên" items={content.equipment.teacher} />
+      <BulletBlock label="2. Học sinh" items={content.equipment.student} />
 
       <div className="section-title">III. Tiến trình dạy học</div>
       {content.sections.map((section, i) => (
@@ -56,9 +74,9 @@ export default function KhdhPreview({ content }: { content: KhdhContent }) {
               {section.subActivities.length > 1 && (
                 <div style={{ fontWeight: 600, marginBottom: 6 }}>{block.heading}</div>
               )}
-              <Block label="a) Mục tiêu" text={block.goal} />
-              <Block label="b) Nội dung" text={block.content} />
-              <Block label="c) Sản phẩm" text={block.product} />
+              <TextBlock label="a) Mục tiêu" text={block.goal} />
+              <TextBlock label="b) Nội dung" text={block.content} />
+              <TextBlock label="c) Sản phẩm" text={block.product} />
               <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>d) Tổ chức thực hiện</div>
               <table>
                 <thead>
@@ -72,9 +90,11 @@ export default function KhdhPreview({ content }: { content: KhdhContent }) {
                     <tr key={k}>
                       <td>
                         <strong>{step.title}</strong>
-                        <div style={{ whiteSpace: 'pre-wrap' }}>{step.teacherAndStudent}</div>
+                        <MathText text={step.teacherAndStudent} />
                       </td>
-                      <td style={{ whiteSpace: 'pre-wrap' }}>{step.expectedProduct}</td>
+                      <td>
+                        <MathText text={step.expectedProduct} />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -85,7 +105,7 @@ export default function KhdhPreview({ content }: { content: KhdhContent }) {
       ))}
 
       <div className="section-title">IV. Hướng dẫn về nhà</div>
-      <Block label="" text={content.homework.map((k) => `• ${k}`).join('\n')} />
+      <BulletBlock label="" items={content.homework} />
     </div>
   );
 }

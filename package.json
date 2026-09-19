@@ -15,7 +15,10 @@
     "@vercel/postgres": "^0.10.0",
     "cheerio": "^1.0.0",
     "docx": "^9.1.1",
+    "katex": "^0.18.7",
     "mammoth": "^1.8.0",
+    "mathjax-full": "^3.2.1",
+    "mathml2omml-plus": "^0.6.4",
     "next": "14.2.35",
     "next-auth": "^4.24.10",
     "pdf-parse": "^1.1.1",
@@ -25,6 +28,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@types/katex": "^0.16.8",
     "@types/node": "^22.10.2",
     "@types/pdf-parse": "^1.1.4",
     "@types/react": "^18.3.18",
@@ -32,5 +36,8 @@
     "@types/uuid": "^10.0.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
+  },
+  "overrides": {
+    "@xmldom/xmldom": "^0.9.12"
   }
 }
