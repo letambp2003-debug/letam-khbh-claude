@@ -1,5 +1,13 @@
 # Trợ lý số soạn Kế hoạch dạy học (KHDH) — Chuẩn Công văn 5512, Form V11-2
 
+> **Kho này chứa 2 dự án riêng biệt:**
+> - **Thư mục gốc** (tài liệu này): bản **V11-2** — webapp Next.js đơn giản,
+>   đầy đủ chức năng, đã hoàn thiện, mô tả bên dưới.
+> - **`khdh-v12/`**: bản **V12 RC2** — nền tảng mở rộng nhiều module đang
+>   được xây dựng dần theo milestone (xem `khdh-v12/README.md` và
+>   `khdh-v12/IMPLEMENTATION_REPORT.md` để biết chính xác phần nào đã xong,
+>   phần nào chưa).
+
 Webapp giúp giáo viên: tải lên Phụ lục I / PPCT (.docx hoặc .pdf) → hệ thống tự
 động bóc tách bảng Tuần - Tiết - Tên bài học - Yêu cầu cần đạt (YCCĐ) → chọn 1
 bài học → dùng AI (Anthropic Claude) soạn KHDH đầy đủ 4 hoạt động (Khởi động -

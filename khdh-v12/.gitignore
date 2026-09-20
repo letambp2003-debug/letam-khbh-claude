@@ -1,0 +1,12 @@
+node_modules/
+dist/
+build/
+.env
+.env.local
+*.sqlite
+*.sqlite-journal
+storage/*.db
+storage/uploads/*
+!storage/uploads/.gitkeep
+.DS_Store
+*.tsbuildinfo
