@@ -4,6 +4,9 @@ const getValidUrl = () => {
   if (url) {
     return url.startsWith('http') ? url : `https://${url}`;
   }
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim()) {
+    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL.trim()}`;
+  }
   if (process.env.VERCEL_URL?.trim()) {
     return `https://${process.env.VERCEL_URL.trim()}`;
   }

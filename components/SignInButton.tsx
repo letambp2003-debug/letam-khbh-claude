@@ -10,10 +10,20 @@ export default function SignInButton() {
   const handleCredentialsLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    await signIn('credentials', {
-      email: email.trim() || 'giaovien@gmail.com',
-      callbackUrl: '/dashboard'
-    });
+    try {
+      const res = await signIn('credentials', {
+        redirect: false,
+        email: email.trim() || 'giaovien@gmail.com',
+        callbackUrl: '/dashboard'
+      });
+      if (res?.ok) {
+        window.location.href = '/dashboard';
+      } else {
+        setLoading(false);
+      }
+    } catch {
+      setLoading(false);
+    }
   };
 
   return (
@@ -57,7 +67,10 @@ export default function SignInButton() {
           type="button"
           className="btn btn-google"
           style={{ width: '100%', justifyContent: 'center' }}
-          onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
+          onClick={() => {
+            const callbackUrl = typeof window !== 'undefined' ? `${window.location.origin}/dashboard` : '/dashboard';
+            signIn('google', { callbackUrl });
+          }}
         >
           <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
             <path
