@@ -11,6 +11,7 @@ import GoogleProvider from 'next-auth/providers/google';
  * của giáo viên B.
  */
 export const authOptions: NextAuthOptions = {
+  secret: process.env.NEXTAUTH_SECRET || 'build-fallback-secret-at-least-32-chars-long',
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID ?? '',

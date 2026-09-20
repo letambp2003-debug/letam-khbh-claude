@@ -4,6 +4,8 @@ import { authOptions } from '@/lib/auth';
 import DashboardApp from '@/components/DashboardApp';
 import SignOutButton from '@/components/SignOutButton';
 
+export const dynamic = 'force-dynamic';
+
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user) {

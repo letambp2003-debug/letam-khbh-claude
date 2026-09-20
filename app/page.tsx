@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation';
 import { authOptions } from '@/lib/auth';
 import SignInButton from '@/components/SignInButton';
 
+export const dynamic = 'force-dynamic';
+
 export default async function HomePage() {
   const session = await getServerSession(authOptions);
   if (session?.user) {
