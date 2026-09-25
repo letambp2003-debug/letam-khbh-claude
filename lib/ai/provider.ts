@@ -112,70 +112,127 @@ async function callClaudeSdk(
 }
 
 /**
+/**
+ * Phân tích danh sách API Key (hỗ trợ nhập nhiều key cách nhau bằng xuống dòng, dấu phẩy, chấm phẩy)
+ */
+export function parseApiKeys(raw?: string): string[] {
+  if (!raw) return [];
+  return raw
+    .split(/[\n,;\s]+/)
+    .map((k) => k.trim())
+    .filter((k) => k.length > 5);
+}
+
+/**
  * Hàm điều phối AI dùng chung toàn ứng dụng:
- * Tự động chọn Claude hoặc Gemini dựa vào cấu hình hoặc yêu cầu của giáo viên.
+ * Hỗ trợ nhập NHIỀU API KEY cùng lúc, tự động xoay vòng và dự phòng (fallback)
+ * khi một key bị hết hạn mức (HTTP 429 / RESOURCE_EXHAUSTED).
  */
 export async function callAi(options: CallAiOptions): Promise<string> {
   const requestedProvider = options.provider || 'gemini';
-  const customKey = options.customApiKey?.trim();
+  const customKeyRaw = options.customApiKey?.trim();
 
-  // Ưu tiên 1: Gemini
+  // ƯU TIÊN 1: GOOGLE GEMINI
   if (requestedProvider === 'gemini') {
-    const geminiKey = customKey || process.env.GEMINI_API_KEY;
-    if (geminiKey) {
-      return callGeminiRest(
-        options.prompt,
-        options.systemPrompt,
-        geminiKey,
-        options.temperature,
-        options.maxTokens
+    let geminiKeys = parseApiKeys(customKeyRaw);
+    if (geminiKeys.length === 0 && process.env.GEMINI_API_KEY) {
+      geminiKeys = parseApiKeys(process.env.GEMINI_API_KEY);
+    }
+
+    if (geminiKeys.length > 0) {
+      let lastError: any = null;
+      for (let i = 0; i < geminiKeys.length; i++) {
+        const currentKey = geminiKeys[i];
+        try {
+          return await callGeminiRest(
+            options.prompt,
+            options.systemPrompt,
+            currentKey,
+            options.temperature,
+            options.maxTokens
+          );
+        } catch (err: any) {
+          lastError = err;
+          console.warn(
+            `[Gemini] Key #${i + 1}/${geminiKeys.length} gặp sự cố (${err.message}). ` +
+              (i < geminiKeys.length - 1 ? 'Đang tự động chuyển sang key dự phòng tiếp theo...' : 'Đã hết key dự phòng.')
+          );
+          if (i < geminiKeys.length - 1) {
+            continue;
+          }
+        }
+      }
+      throw new Error(
+        `Tất cả ${geminiKeys.length} Gemini API Key đều thất bại hoặc hết hạn mức. Chi tiết: ${lastError?.message || 'Lỗi không xác định'}`
       );
     }
 
-    // Nếu không có Gemini key, tự động fallback sang Claude nếu Claude key có sẵn
-    const claudeKey = process.env.ANTHROPIC_API_KEY;
-    if (claudeKey) {
+    // Nếu không có Gemini key nào, thử fallback sang Claude
+    const claudeKeys = parseApiKeys(process.env.ANTHROPIC_API_KEY);
+    if (claudeKeys.length > 0) {
       return callClaudeSdk(
         options.prompt,
         options.systemPrompt,
-        claudeKey,
+        claudeKeys[0],
         options.temperature,
         options.maxTokens
       );
     }
 
     throw new Error(
-      'Chưa cấu hình API Key. Vui lòng bấm vào "Cài đặt API Key" để nhập Gemini API Key (miễn phí) hoặc Anthropic Claude Key.'
+      'Chưa cấu hình API Key. Thầy/cô vui lòng bấm vào "⚙ Cài đặt API Key & Phương pháp" để nhập ít nhất một Gemini API Key (hỗ trợ dán nhiều key cùng lúc).'
     );
   }
 
-  // Ưu tiên 2: Claude
+  // ƯU TIÊN 2: ANTHROPIC CLAUDE
   if (requestedProvider === 'claude') {
-    const claudeKey = customKey || process.env.ANTHROPIC_API_KEY;
-    if (claudeKey) {
-      return callClaudeSdk(
-        options.prompt,
-        options.systemPrompt,
-        claudeKey,
-        options.temperature,
-        options.maxTokens
+    let claudeKeys = parseApiKeys(customKeyRaw);
+    if (claudeKeys.length === 0 && process.env.ANTHROPIC_API_KEY) {
+      claudeKeys = parseApiKeys(process.env.ANTHROPIC_API_KEY);
+    }
+
+    if (claudeKeys.length > 0) {
+      let lastError: any = null;
+      for (let i = 0; i < claudeKeys.length; i++) {
+        const currentKey = claudeKeys[i];
+        try {
+          return await callClaudeSdk(
+            options.prompt,
+            options.systemPrompt,
+            currentKey,
+            options.temperature,
+            options.maxTokens
+          );
+        } catch (err: any) {
+          lastError = err;
+          console.warn(
+            `[Claude] Key #${i + 1}/${claudeKeys.length} gặp sự cố (${err.message}). ` +
+              (i < claudeKeys.length - 1 ? 'Đang tự động chuyển sang key dự phòng tiếp theo...' : 'Đã hết key dự phòng.')
+          );
+          if (i < claudeKeys.length - 1) {
+            continue;
+          }
+        }
+      }
+      throw new Error(
+        `Tất cả ${claudeKeys.length} Claude API Key đều thất bại hoặc hết hạn mức. Chi tiết: ${lastError?.message || 'Lỗi không xác định'}`
       );
     }
 
-    // Nếu không có Claude key, fallback sang Gemini
-    const geminiKey = process.env.GEMINI_API_KEY;
-    if (geminiKey) {
+    // Fallback sang Gemini
+    const geminiKeys = parseApiKeys(process.env.GEMINI_API_KEY);
+    if (geminiKeys.length > 0) {
       return callGeminiRest(
         options.prompt,
         options.systemPrompt,
-        geminiKey,
+        geminiKeys[0],
         options.temperature,
         options.maxTokens
       );
     }
 
     throw new Error(
-      'Chưa cấu hình Anthropic API Key. Vui lòng nhập Claude Key trong mục Cài đặt hoặc chuyển sang dùng Google Gemini.'
+      'Chưa cấu hình Anthropic API Key. Thầy/cô vui lòng nhập Claude Key trong mục Cài đặt hoặc chuyển sang dùng Google Gemini.'
     );
   }
 

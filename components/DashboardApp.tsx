@@ -197,11 +197,26 @@ export default function DashboardApp({ userEmail = 'Giáo viên' }: { userEmail?
 
   // Sinh KHDH
   async function handleGenerateKhdh() {
-    if (!selectedLesson) return;
+    if (!selectedLesson) {
+      setError('Thầy/cô vui lòng chọn 1 dòng bài học từ bảng danh sách bên trên trước khi soạn KHDH.');
+      return;
+    }
     if (!selectedLesson.title.trim()) {
       setError('Vui lòng nhập Tên bài học trước khi tạo KHDH.');
       return;
     }
+
+    const currentApiKey =
+      userSettings.provider === 'gemini'
+        ? userSettings.geminiApiKey?.trim()
+        : userSettings.claudeApiKey?.trim();
+
+    if (!currentApiKey) {
+      setError('Thầy/cô vui lòng nạp ít nhất một API Key để bắt đầu soạn giáo án.');
+      setShowSettingsModal(true);
+      return;
+    }
+
     setError(null);
     setGeneratingKhdh(true);
     setContent(null);
@@ -224,10 +239,7 @@ export default function DashboardApp({ userEmail = 'Giáo viên' }: { userEmail?
           extraNotes,
           ppctUploadId: uploadId,
           provider: userSettings.provider,
-          customApiKey:
-            userSettings.provider === 'gemini'
-              ? userSettings.geminiApiKey
-              : userSettings.claudeApiKey,
+          customApiKey: currentApiKey,
           teachingMethod: userSettings.teachingMethod
         })
       });
@@ -654,14 +666,79 @@ export default function DashboardApp({ userEmail = 'Giáo viên' }: { userEmail?
             />
           </div>
 
+          {/* Trạng thái API Key hiện tại */}
+          {(() => {
+            const rawKey = userSettings.provider === 'gemini' ? userSettings.geminiApiKey : userSettings.claudeApiKey;
+            const keyCount = (rawKey || '').split(/[\n,;\s]+/).filter((k) => k.trim().length > 5).length;
+            const providerName = userSettings.provider === 'gemini' ? 'Google Gemini' : 'Anthropic Claude';
+
+            return keyCount > 0 ? (
+              <div style={{ marginTop: 16, background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '10px 14px', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                <div style={{ fontSize: 13, color: '#166534', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>⚡</span>
+                  <span><strong>AI Model:</strong> {providerName} · <strong>Đã nạp:</strong> <span style={{ background: '#dcfce7', padding: '2px 8px', borderRadius: 10, fontWeight: 700, color: '#15803d' }}>{keyCount} API Key</span> (Cơ chế xoay vòng &amp; dự phòng khi chạm 429 đang bật)</span>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ fontSize: 12, padding: '4px 10px' }}
+                  onClick={() => setShowSettingsModal(true)}
+                >
+                  ⚙ Thêm / Đổi Key
+                </button>
+              </div>
+            ) : (
+              <div style={{ marginTop: 16, background: '#fffbeb', border: '1px solid #fde68a', padding: '12px 14px', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                <div style={{ fontSize: 13, color: '#92400e' }}>
+                  ⚠️ <strong>Chưa nạp API Key:</strong> Thầy/cô cần nạp ít nhất 1 API Key để AI bắt đầu soạn bài (hỗ trợ dán nhiều key cùng lúc).
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ fontSize: 12, padding: '6px 12px' }}
+                  onClick={() => setShowSettingsModal(true)}
+                >
+                  🔑 Nạp API Key ngay
+                </button>
+              </div>
+            );
+          })()}
+
+          {/* Hiển thị lỗi ngay tại vị trí nút bấm */}
+          {error && (
+            <div className="error-box" style={{ marginTop: 12, fontSize: 13 }}>
+              ❌ {error}
+            </div>
+          )}
+
+          {/* Hiển thị trạng thái đang soạn bài */}
+          {generatingKhdh && (
+            <div style={{ marginTop: 14, background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '12px 16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#1e40af', fontWeight: 600 }}>
+                <span className="spinner" style={{ borderTopColor: '#2563eb' }} />
+                <span>Đang điều phối AI soạn Kế hoạch dạy học theo chuẩn Công văn 5512...</span>
+              </div>
+              <div style={{ fontSize: 12, color: '#1e40af', marginTop: 4, lineHeight: 1.4 }}>
+                Hệ thống đang xuất chi tiết 100% nội dung (chế độ token cao 8,192). Quá trình này thường mất khoảng 25-45 giây, thầy/cô vui lòng đợi trong giây lát...
+              </div>
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
             <button
               className="btn btn-primary"
-              disabled={selectedIndex === null || generatingKhdh}
+              disabled={generatingKhdh}
               onClick={handleGenerateKhdh}
+              style={{ fontSize: 15, padding: '10px 22px', fontWeight: 600 }}
             >
-              {generatingKhdh && <span className="spinner" />}
-              {generatingKhdh ? 'Đang soạn KHDH...' : '📄 Soạn KHDH (Form V11-2)'}
+              {generatingKhdh ? (
+                <>
+                  <span className="spinner" style={{ borderTopColor: '#fff', marginRight: 8 }} />
+                  Đang soạn KHDH...
+                </>
+              ) : (
+                '📄 Soạn KHDH (Form V11-2)'
+              )}
             </button>
           </div>
         </div>

@@ -148,48 +148,70 @@ export default function ApiKeyModal({ isOpen, onClose, onSave, currentSettings }
         </div>
 
         {provider === 'gemini' ? (
-          <div style={{ marginBottom: 16, background: '#f7fafc', padding: 12, borderRadius: 8 }}>
-            <label className="muted" style={{ fontWeight: 600 }}>
-              Google Gemini API Key (tùy chọn nếu server đã có)
-            </label>
-            <input
-              type="password"
-              placeholder="AIzaSy..."
+          <div style={{ marginBottom: 16, background: '#f7fafc', padding: 14, borderRadius: 8, border: '1px solid #e2e8f0' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <label style={{ fontWeight: 600, color: '#1a202c', fontSize: 13 }}>
+                Google Gemini API Key (nhập 1 hoặc nhiều key)
+              </label>
+              {(() => {
+                const count = geminiApiKey.split(/[\n,;\s]+/).filter((k) => k.trim().length > 5).length;
+                return count > 0 ? (
+                  <span style={{ fontSize: 12, background: '#e6fffa', color: '#234e52', padding: '2px 8px', borderRadius: 10, fontWeight: 700, border: '1px solid #b2f5ea' }}>
+                    ✓ Đã nhận {count} key (Tự động luân chuyển)
+                  </span>
+                ) : null;
+              })()}
+            </div>
+            <textarea
+              rows={4}
+              placeholder={`Thầy/cô có thể dán 1 hoặc NHIỀU API Key tại đây (mỗi key 1 dòng hoặc cách nhau bởi dấu phẩy):\nAIzaSyA...\nAIzaSyB...\nAIzaSyC...`}
               value={geminiApiKey}
               onChange={(e) => setGeminiApiKey(e.target.value)}
-              style={{ width: '100%', marginTop: 4, fontFamily: 'monospace' }}
+              style={{ width: '100%', fontFamily: 'monospace', fontSize: 13, padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }}
             />
-            <div style={{ fontSize: 12, color: '#4a5568', marginTop: 4 }}>
-              💡 Lấy key miễn phí trong 1 phút tại:{' '}
+            <div style={{ fontSize: 12, color: '#4a5568', marginTop: 6, lineHeight: 1.5 }}>
+              ⚡ <strong>Chế độ dự phòng thông minh:</strong> Khi nhập nhiều key, hệ thống sẽ tự động chuyển sang key tiếp theo nếu một key chạm ngưỡng giới hạn (429 / Quota Exceeded), giúp giáo án luôn được tạo trọn vẹn.<br />
+              💡 Lấy key miễn phí không giới hạn trong 1 phút tại:{' '}
               <a
                 href="https://aistudio.google.com/app/apikey"
                 target="_blank"
                 rel="noreferrer"
-                style={{ color: '#2454ff', textDecoration: 'underline' }}
+                style={{ color: '#2454ff', textDecoration: 'underline', fontWeight: 600 }}
               >
                 Google AI Studio (Get API Key)
               </a>
             </div>
           </div>
         ) : (
-          <div style={{ marginBottom: 16, background: '#f7fafc', padding: 12, borderRadius: 8 }}>
-            <label className="muted" style={{ fontWeight: 600 }}>
-              Anthropic Claude API Key (tùy chọn nếu server đã có)
-            </label>
-            <input
-              type="password"
-              placeholder="sk-ant-api..."
+          <div style={{ marginBottom: 16, background: '#f7fafc', padding: 14, borderRadius: 8, border: '1px solid #e2e8f0' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <label style={{ fontWeight: 600, color: '#1a202c', fontSize: 13 }}>
+                Anthropic Claude API Key (nhập 1 hoặc nhiều key)
+              </label>
+              {(() => {
+                const count = claudeApiKey.split(/[\n,;\s]+/).filter((k) => k.trim().length > 5).length;
+                return count > 0 ? (
+                  <span style={{ fontSize: 12, background: '#e6fffa', color: '#234e52', padding: '2px 8px', borderRadius: 10, fontWeight: 700, border: '1px solid #b2f5ea' }}>
+                    ✓ Đã nhận {count} key (Tự động luân chuyển)
+                  </span>
+                ) : null;
+              })()}
+            </div>
+            <textarea
+              rows={4}
+              placeholder={`Dán 1 hoặc NHIỀU Claude API Key (mỗi key 1 dòng hoặc cách nhau bởi dấu phẩy):\nsk-ant-api03-...\nsk-ant-api03-...`}
               value={claudeApiKey}
               onChange={(e) => setClaudeApiKey(e.target.value)}
-              style={{ width: '100%', marginTop: 4, fontFamily: 'monospace' }}
+              style={{ width: '100%', fontFamily: 'monospace', fontSize: 13, padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }}
             />
-            <div style={{ fontSize: 12, color: '#4a5568', marginTop: 4 }}>
+            <div style={{ fontSize: 12, color: '#4a5568', marginTop: 6, lineHeight: 1.5 }}>
+              ⚡ Hỗ trợ nhiều key xoay vòng tự động khi hết hạn mức.<br />
               💡 Lấy key tại:{' '}
               <a
                 href="https://console.anthropic.com/settings/keys"
                 target="_blank"
                 rel="noreferrer"
-                style={{ color: '#2454ff', textDecoration: 'underline' }}
+                style={{ color: '#2454ff', textDecoration: 'underline', fontWeight: 600 }}
               >
                 Anthropic Console
               </a>
