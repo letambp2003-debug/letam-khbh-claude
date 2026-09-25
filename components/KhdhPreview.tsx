@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { KhdhContent, KhdhSection, ActivityBlock } from '@/types/khdh';
 import MathText from '@/components/MathText';
+import { copyKhdhToWordClipboard } from '@/lib/khdh/clipboardWord';
 
 function BulletBlock({
   label,
@@ -86,6 +87,17 @@ export default function KhdhPreview({
   onContentChange?: (content: KhdhContent) => void;
 }) {
   const [isEditing, setIsEditing] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    try {
+      await copyKhdhToWordClipboard(content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 3500);
+    } catch (e) {
+      alert('Không thể sao chép tự động. Vui lòng thử lại hoặc dùng chức năng Tải file Word.');
+    }
+  }
 
   function updateBlock(
     secIdx: number,
@@ -107,10 +119,26 @@ export default function KhdhPreview({
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginBottom: 12 }}>
+        <button
+          className="btn"
+          style={{
+            fontSize: 13,
+            padding: '6px 14px',
+            background: copied ? '#22543d' : '#2b6cb0',
+            color: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6
+          }}
+          onClick={handleCopy}
+        >
+          {copied ? '✓ Đã chép vào bộ nhớ! (Mở Word ấn Ctrl+V)' : '📋 Sao chép toàn bộ vào Word'}
+        </button>
+
         <button
           className={`btn ${isEditing ? 'btn-primary' : 'btn-secondary'}`}
-          style={{ fontSize: 13, padding: '4px 12px' }}
+          style={{ fontSize: 13, padding: '6px 14px' }}
           onClick={() => setIsEditing(!isEditing)}
         >
           {isEditing ? '✓ Đã xong chỉnh sửa' : '✏ Chỉnh sửa nhanh KHDH'}

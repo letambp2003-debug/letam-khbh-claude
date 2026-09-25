@@ -20,23 +20,11 @@ function slugifyFileName(text: string) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: 'Vui lòng đăng nhập bằng Google để tiếp tục.' }, { status: 401 });
-  }
-
   try {
     const body = await req.json();
     let content: KhdhContent;
 
-    if (body.id) {
-      // Xuất lại từ bản ghi đã lưu, đảm bảo chỉ chủ sở hữu mới xuất được
-      const record = await getKhdh(body.id, session.user.email);
-      if (!record) {
-        return NextResponse.json({ error: 'Không tìm thấy KHDH hoặc bạn không có quyền truy cập.' }, { status: 404 });
-      }
-      content = record.content_json as KhdhContent;
-    } else if (body.content) {
+    if (body.content) {
       content = body.content as KhdhContent;
     } else {
       return NextResponse.json({ error: 'Thiếu dữ liệu KHDH để xuất file.' }, { status: 400 });

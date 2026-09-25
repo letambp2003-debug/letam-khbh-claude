@@ -27,11 +27,14 @@ async function callGeminiRest(
   prompt: string,
   systemPrompt: string | undefined,
   apiKey: string,
-  temperature: number = 0.5,
-  maxTokens: number = 8000
+  temperature: number = 0.4,
+  maxTokens: number = 8192
 ): Promise<string> {
   const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+  const fullSystemPrompt = (systemPrompt ? systemPrompt + '\n' : '') +
+    'QUY TẮC QUAN TRỌNG: Triển khai ĐẦY ĐỦ 100% nội dung chi tiết cho từng bước và từng hoạt động. Tuyệt đối KHÔNG viết tắt, KHÔNG tóm tắt sơ sài, KHÔNG dùng các câu như "tương tự như trên..." hay bỏ lửng nội dung.';
 
   const contents: any[] = [];
   contents.push({
@@ -44,14 +47,11 @@ async function callGeminiRest(
     generationConfig: {
       temperature,
       maxOutputTokens: maxTokens
+    },
+    systemInstruction: {
+      parts: [{ text: fullSystemPrompt }]
     }
   };
-
-  if (systemPrompt) {
-    payload.systemInstruction = {
-      parts: [{ text: systemPrompt }]
-    };
-  }
 
   const res = await fetch(url, {
     method: 'POST',

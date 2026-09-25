@@ -8,11 +8,6 @@ export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: 'Vui lòng đăng nhập bằng Google để tiếp tục.' }, { status: 401 });
-  }
-
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
@@ -33,24 +28,7 @@ export async function POST(req: NextRequest) {
     result.subject = subject;
     result.grade = grade;
 
-    // Auto-Purge Cache: mỗi lần upload là một bản ghi mới, không tái sử dụng
-    // bản ghi cũ -> giáo viên luôn thao tác trên dữ liệu mới nhất vừa bóc tách.
-    // Lưu ý: lưu DB là best-effort — nếu Postgres chưa cấu hình/lỗi tạm thời,
-    // giáo viên vẫn nhận được kết quả bóc tách để làm việc tiếp (chỉ mất khả
-    // năng liên kết lại với lịch sử upload), thay vì toàn bộ request báo lỗi.
-    let uploadId: string | null = null;
-    try {
-      uploadId = await savePpctUpload({
-        ownerEmail: session.user.email,
-        fileName: file.name,
-        subject,
-        grade,
-        lessons: result.lessons
-      });
-    } catch (dbErr) {
-      console.error('Không lưu được PPCT vào DB (bỏ qua, vẫn trả kết quả bóc tách):', dbErr);
-    }
-
+    const uploadId = `local_${Date.now()}`;
     return NextResponse.json({ uploadId, ...result });
   } catch (err: any) {
     console.error('PPCT parse error', err);

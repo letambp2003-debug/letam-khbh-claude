@@ -26,7 +26,7 @@ async function safeJson(res: Response): Promise<any> {
   }
 }
 
-export default function DashboardApp({ userEmail }: { userEmail: string }) {
+export default function DashboardApp({ userEmail = 'Giáo viên' }: { userEmail?: string }) {
   const [step, setStep] = useState<Step>('upload');
   const [activeTab, setActiveTab] = useState<ActiveTab>('khdh');
   const [error, setError] = useState<string | null>(null);
@@ -74,10 +74,10 @@ export default function DashboardApp({ userEmail }: { userEmail: string }) {
     teachingMethod: TEACHING_METHODS[0]
   });
 
-  // Tải cài đặt từ localStorage khi mount
+  // Tải cài đặt từ sessionStorage khi mount (tự hủy hoàn toàn khi đóng tab)
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('khdh_user_settings');
+      const saved = sessionStorage.getItem('khdh_session_settings');
       if (saved) {
         setUserSettings(JSON.parse(saved));
       }
@@ -89,7 +89,7 @@ export default function DashboardApp({ userEmail }: { userEmail: string }) {
   function handleSaveSettings(newSettings: UserAiSettings) {
     setUserSettings(newSettings);
     try {
-      localStorage.setItem('khdh_user_settings', JSON.stringify(newSettings));
+      sessionStorage.setItem('khdh_session_settings', JSON.stringify(newSettings));
     } catch {
       // ignore
     }
@@ -332,14 +332,43 @@ export default function DashboardApp({ userEmail }: { userEmail: string }) {
 
   return (
     <div>
-      {/* Nút cài đặt trên góc phải */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+      {/* Nút cài đặt và chỉ báo trạng thái trên góc phải */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <span
+            style={{
+              background: '#e6fffa',
+              color: '#234e52',
+              border: '1px solid #b2f5ea',
+              padding: '3px 10px',
+              borderRadius: 14,
+              fontSize: 12,
+              fontWeight: 600
+            }}
+          >
+            🔒 Không gian riêng tư (Tab độc lập)
+          </span>
+          <span
+            style={{
+              background: '#fefcbf',
+              color: '#744210',
+              border: '1px solid #faf089',
+              padding: '3px 10px',
+              borderRadius: 14,
+              fontSize: 12,
+              fontWeight: 600
+            }}
+          >
+            ⚡ Token cao: 8,192 (Xuất trọn vẹn)
+          </span>
+        </div>
+
         <button
           className="btn btn-secondary"
           style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}
           onClick={() => setShowSettingsModal(true)}
         >
-          <span>⚙ Cài đặt AI &amp; Phương pháp</span>
+          <span>⚙ Cài đặt API Key &amp; Phương pháp</span>
           <span
             style={{
               background: '#ebf8ff',
@@ -353,6 +382,26 @@ export default function DashboardApp({ userEmail }: { userEmail: string }) {
             {userSettings.provider === 'gemini' ? 'Gemini AI' : 'Claude AI'}
           </span>
         </button>
+      </div>
+
+      <div
+        style={{
+          background: '#f0fff4',
+          border: '1px solid #c6f6d5',
+          padding: '10px 14px',
+          borderRadius: 8,
+          marginBottom: 16,
+          fontSize: 13,
+          color: '#22543d',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8
+        }}
+      >
+        <span>💡</span>
+        <span>
+          <strong>Dùng ngay không cần đăng nhập:</strong> Dữ liệu chỉ xử lý trong phiên làm việc hiện tại của bạn. Cùng lúc nhiều thầy/cô cùng dùng hoàn toàn độc lập, không ai thấy dữ liệu của ai. Khi đóng tab, toàn bộ nội dung sẽ tự động xóa sạch.
+        </span>
       </div>
 
       <ApiKeyModal
