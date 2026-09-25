@@ -45,6 +45,14 @@ export default function DashboardApp({ userEmail = 'Giáo viên' }: { userEmail?
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
+  // Tài liệu bổ trợ (SGK & KHDHCU)
+  const [sgkFile, setSgkFile] = useState<{ name: string; text: string; charCount: number; preview: string } | null>(null);
+  const [khdhCuFile, setKhdhCuFile] = useState<{ name: string; text: string; charCount: number; preview: string } | null>(null);
+  const [uploadingSgk, setUploadingSgk] = useState(false);
+  const [uploadingKhdhCu, setUploadingKhdhCu] = useState(false);
+  const sgkInputRef = useRef<HTMLInputElement>(null);
+  const khdhCuInputRef = useRef<HTMLInputElement>(null);
+
   const [schoolName, setSchoolName] = useState('');
   const [department, setDepartment] = useState('');
   const [teacherName, setTeacherName] = useState('');
@@ -195,6 +203,33 @@ export default function DashboardApp({ userEmail = 'Giáo viên' }: { userEmail?
     setSelectedIndex(lessons.length);
   }
 
+  async function handleUploadSource(file: File, slot: 'sgk' | 'khdh_cu') {
+    setError(null);
+    if (slot === 'sgk') setUploadingSgk(true);
+    else setUploadingKhdhCu(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('slot', slot);
+
+      const res = await fetch('/api/source/parse', { method: 'POST', body: formData });
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error(data.error || 'Có lỗi khi đọc tài liệu.');
+
+      if (slot === 'sgk') {
+        setSgkFile({ name: file.name, text: data.text, charCount: data.charCount, preview: data.preview });
+      } else {
+        setKhdhCuFile({ name: file.name, text: data.text, charCount: data.charCount, preview: data.preview });
+      }
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      if (slot === 'sgk') setUploadingSgk(false);
+      else setUploadingKhdhCu(false);
+    }
+  }
+
   // Sinh KHDH
   async function handleGenerateKhdh() {
     if (!selectedLesson) {
@@ -240,7 +275,10 @@ export default function DashboardApp({ userEmail = 'Giáo viên' }: { userEmail?
           ppctUploadId: uploadId,
           provider: userSettings.provider,
           customApiKey: currentApiKey,
-          teachingMethod: userSettings.teachingMethod
+          teachingMethod: userSettings.teachingMethod,
+          geminiModel: userSettings.geminiModel,
+          sgkText: sgkFile?.text,
+          khdhCuText: khdhCuFile?.text
         })
       });
       const data = await safeJson(res);
@@ -584,6 +622,108 @@ export default function DashboardApp({ userEmail = 'Giáo viên' }: { userEmail?
             </div>
           </div>
         )}
+
+        {/* NẠP TÀI LIỆU BỔ TRỢ: SGK VÀ KHDHCU */}
+        <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px dashed #cbd5e1' }}>
+          <div style={{ fontWeight: 600, fontSize: 13, color: '#1e293b', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span>📚</span>
+            <span>Nạp thêm tài liệu bổ trợ (Tùy chọn — giúp AI trích dẫn chuẩn 100% sách và giáo án mẫu):</span>
+          </div>
+
+          <div className="grid-2">
+            {/* Slot 1: Sách giáo khoa (SGK) */}
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <span style={{ fontWeight: 600, fontSize: 13, color: '#334155' }}>📖 Sách giáo khoa (SGK)</span>
+                {sgkFile && (
+                  <button
+                    type="button"
+                    style={{ background: 'transparent', border: 'none', color: '#e53e3e', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}
+                    onClick={() => setSgkFile(null)}
+                  >
+                    ✕ Xóa
+                  </button>
+                )}
+              </div>
+              {sgkFile ? (
+                <div style={{ fontSize: 12, background: '#f0fdf4', color: '#166534', padding: '6px 10px', borderRadius: 6, border: '1px solid #bbf7d0' }}>
+                  ✓ Đã nạp: <strong>{sgkFile.name}</strong> ({sgkFile.charCount.toLocaleString()} ký tự)
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ width: '100%', fontSize: 12, padding: '7px 10px' }}
+                    disabled={uploadingSgk}
+                    onClick={() => sgkInputRef.current?.click()}
+                  >
+                    {uploadingSgk ? 'Đang đọc file SGK...' : '+ Tải file SGK (.pdf, .docx)'}
+                  </button>
+                  <input
+                    ref={sgkInputRef}
+                    type="file"
+                    accept=".pdf,.docx"
+                    hidden
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleUploadSource(f, 'sgk');
+                    }}
+                  />
+                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                    Nội dung bài học trong SGK để AI trích dẫn đúng bài tập, câu hỏi
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Slot 2: KHDH cũ / Giáo án mẫu (KHDHCU) */}
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <span style={{ fontWeight: 600, fontSize: 13, color: '#334155' }}>📁 KHDH cũ / Giáo án mẫu (KHDHCU)</span>
+                {khdhCuFile && (
+                  <button
+                    type="button"
+                    style={{ background: 'transparent', border: 'none', color: '#e53e3e', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}
+                    onClick={() => setKhdhCuFile(null)}
+                  >
+                    ✕ Xóa
+                  </button>
+                )}
+              </div>
+              {khdhCuFile ? (
+                <div style={{ fontSize: 12, background: '#f0fdf4', color: '#166534', padding: '6px 10px', borderRadius: 6, border: '1px solid #bbf7d0' }}>
+                  ✓ Đã nạp: <strong>{khdhCuFile.name}</strong> ({khdhCuFile.charCount.toLocaleString()} ký tự)
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ width: '100%', fontSize: 12, padding: '7px 10px' }}
+                    disabled={uploadingKhdhCu}
+                    onClick={() => khdhCuInputRef.current?.click()}
+                  >
+                    {uploadingKhdhCu ? 'Đang đọc KHDH cũ...' : '+ Tải KHDH cũ (.docx, .pdf)'}
+                  </button>
+                  <input
+                    ref={khdhCuInputRef}
+                    type="file"
+                    accept=".docx,.pdf"
+                    hidden
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleUploadSource(f, 'khdh_cu');
+                    }}
+                  />
+                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                    Giáo án cũ để AI kế thừa phong cách và hoạt động hay của trường
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
 
         {warnings.length > 0 && (
           <div style={{ marginTop: 14 }}>

@@ -8,6 +8,8 @@ export interface CallAiOptions {
   customApiKey?: string;
   temperature?: number;
   maxTokens?: number;
+  geminiModel?: string;
+  claudeModel?: string;
 }
 
 /**
@@ -21,29 +23,24 @@ export function extractJsonFromText(text: string): string {
 }
 
 /**
- * Gọi Google Gemini thông qua REST API (hỗ trợ cả gemini-2.5-flash và gemini-1.5-flash)
+ * Gọi Google Gemini thông qua REST API với cơ chế tự động thử lần lượt các phiên bản
+ * (gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-flash-latest, gemini-1.5-flash, gemini-pro)
+ * và tự động chuyển đổi giữa v1beta và v1 để tương thích 100% với mọi loại API Key.
  */
 async function callGeminiRest(
   prompt: string,
   systemPrompt: string | undefined,
   apiKey: string,
   temperature: number = 0.4,
-  maxTokens: number = 8192
+  maxTokens: number = 8192,
+  preferredModel?: string
 ): Promise<string> {
-  const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-
-  const fullSystemPrompt = (systemPrompt ? systemPrompt + '\n' : '') +
+  const fullSystemPrompt =
+    (systemPrompt ? systemPrompt + '\n' : '') +
     'QUY TẮC QUAN TRỌNG: Triển khai ĐẦY ĐỦ 100% nội dung chi tiết cho từng bước và từng hoạt động. Tuyệt đối KHÔNG viết tắt, KHÔNG tóm tắt sơ sài, KHÔNG dùng các câu như "tương tự như trên..." hay bỏ lửng nội dung.';
 
-  const contents: any[] = [];
-  contents.push({
-    role: 'user',
-    parts: [{ text: prompt }]
-  });
-
   const payload: any = {
-    contents,
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
     generationConfig: {
       temperature,
       maxOutputTokens: maxTokens
@@ -53,33 +50,76 @@ async function callGeminiRest(
     }
   };
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
+  // Danh sách các model tương thích từ cao xuống thấp
+  const candidateModels = [
+    preferredModel,
+    process.env.GEMINI_MODEL,
+    'gemini-2.5-flash',
+    'gemini-2.0-flash',
+    'gemini-1.5-flash-latest',
+    'gemini-1.5-flash',
+    'gemini-1.5-pro',
+    'gemini-pro'
+  ].filter(Boolean) as string[];
 
-  if (!res.ok) {
-    const errorBody = await res.text();
-    let msg = `Lỗi từ Google Gemini (${res.status})`;
-    try {
-      const parsed = JSON.parse(errorBody);
-      msg = parsed.error?.message || msg;
-    } catch {
-      msg = `${msg}: ${errorBody.slice(0, 200)}`;
+  const uniqueModels = Array.from(new Set(candidateModels));
+  let lastError: any = null;
+
+  for (const model of uniqueModels) {
+    for (const apiVer of ['v1beta', 'v1']) {
+      const url = `https://generativelanguage.googleapis.com/${apiVer}/models/${model}:generateContent?key=${apiKey}`;
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const candidate = data.candidates?.[0];
+          const text = candidate?.content?.parts?.[0]?.text;
+          if (text) return text;
+        }
+
+        const errorBody = await res.text();
+        let msg = `Lỗi từ Google Gemini (${res.status})`;
+        try {
+          const parsed = JSON.parse(errorBody);
+          msg = parsed.error?.message || msg;
+        } catch {
+          msg = `${msg}: ${errorBody.slice(0, 200)}`;
+        }
+
+        const lowerMsg = msg.toLowerCase();
+        // Nếu model không tồn tại trên tài khoản/API version này, thử model tiếp theo
+        if (
+          res.status === 404 ||
+          lowerMsg.includes('not found') ||
+          lowerMsg.includes('not supported') ||
+          lowerMsg.includes('unsupported')
+        ) {
+          lastError = new Error(`[${model}][${apiVer}] ${msg}`);
+          continue;
+        }
+
+        // Nếu là lỗi hạn mức (429) hoặc lỗi xác thực (400/403), ném lỗi để luân chuyển sang Key tiếp theo
+        throw new Error(msg);
+      } catch (err: any) {
+        const lower = (err.message || '').toLowerCase();
+        if (lower.includes('not found') || lower.includes('not supported') || lower.includes('unsupported')) {
+          lastError = err;
+          continue;
+        }
+        throw err;
+      }
     }
-    throw new Error(msg);
   }
 
-  const data = await res.json();
-  const candidate = data.candidates?.[0];
-  const text = candidate?.content?.parts?.[0]?.text;
-
-  if (!text) {
-    throw new Error('Google Gemini không trả về nội dung hợp lệ.');
-  }
-
-  return text;
+  throw (
+    lastError ||
+    new Error('Không tìm thấy phiên bản mô hình Gemini phù hợp với API Key này. Vui lòng kiểm tra lại quyền của API Key trên Google AI Studio.')
+  );
 }
 
 /**
@@ -149,7 +189,8 @@ export async function callAi(options: CallAiOptions): Promise<string> {
             options.systemPrompt,
             currentKey,
             options.temperature,
-            options.maxTokens
+            options.maxTokens,
+            options.geminiModel
           );
         } catch (err: any) {
           lastError = err;

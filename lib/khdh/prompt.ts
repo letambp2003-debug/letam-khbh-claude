@@ -72,6 +72,8 @@ export function buildKhdhUserPrompt(params: {
   durationPeriods: number;
   requirement: string;
   extraNotes?: string;
+  sgkText?: string;
+  khdhCuText?: string;
 }): string {
   return `Hãy soạn Kế hoạch dạy học (KHDH) theo đúng FORM V11-2 FINAL cho bài học sau:
 
@@ -86,9 +88,9 @@ export function buildKhdhUserPrompt(params: {
 - Số tiết: ${params.durationPeriods}
 - Yêu cầu cần đạt (YCCĐ) theo Chương trình GDPT 2018 (dùng làm CĂN CỨ xây dựng hoạt động, KHÔNG chép nguyên văn vào phần Kiến thức):
 """
-${params.requirement || '(không có, hãy tự suy luận hợp lý theo tên bài học, môn học và lớp)'}
+${params.requirement || '(không có, hãy tự suy luận chuẩn xác theo Chương trình GDPT 2018 môn học và lớp tương ứng)'}
 """
-${params.extraNotes ? `- Ghi chú thêm từ giáo viên: ${params.extraNotes}\n` : ''}
+${params.extraNotes ? `- Ghi chú thêm từ giáo viên: ${params.extraNotes}\n` : ''}${params.sgkText ? `\n=== TÀI LIỆU SÁCH GIÁO KHOA (SGK) THAM KHẢO ===\n"""\n${params.sgkText.slice(0, 12000)}\n"""\n(QUAN TRỌNG: Khai thác chính xác các định nghĩa, tình huống khởi động, câu hỏi khám phá và bài tập từ tài liệu SGK trên vào các hoạt động dạy học).\n` : ''}${params.khdhCuText ? `\n=== KẾ HOẠCH DẠY HỌC CŨ / GIÁO ÁN MẪU (KHDHCU) ===\n"""\n${params.khdhCuText.slice(0, 10000)}\n"""\n(QUAN TRỌNG: Kế thừa các ý tưởng sư phạm hay, ví dụ minh họa và sản phẩm học tập từ giáo án mẫu trên).\n` : ''}
 Nhắc lại: mọi công thức toán dùng $...$ / $$...$$ (MATH_CANONICAL), hình vẽ chính xác dùng khối \`\`\`tikz sau nhãn "Code TikZ / Overleaf:", ảnh minh hoạ dùng khối \`\`\`text sau nhãn "Prompt tạo ảnh:".
 
 Trả về DUY NHẤT một đối tượng JSON đúng theo schema TypeScript sau (không thêm trường khác, không thêm chú thích):

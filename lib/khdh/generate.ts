@@ -18,6 +18,9 @@ export async function generateKhdhContent(params: {
   provider?: AiProvider;
   customApiKey?: string;
   teachingMethod?: string;
+  sgkText?: string;
+  khdhCuText?: string;
+  geminiModel?: string;
 }): Promise<KhdhContent> {
   let promptText = buildKhdhUserPrompt(params);
   if (params.teachingMethod) {
@@ -30,7 +33,8 @@ export async function generateKhdhContent(params: {
     provider: params.provider,
     customApiKey: params.customApiKey,
     maxTokens: 8000,
-    temperature: 0.35
+    temperature: 0.35,
+    geminiModel: params.geminiModel
   });
 
   const jsonText = extractJsonFromText(responseText);

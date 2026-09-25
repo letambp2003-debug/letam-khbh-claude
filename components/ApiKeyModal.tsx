@@ -20,16 +20,26 @@ export const TEACHING_METHODS = [
   'Dạy học phân hóa theo đối tượng học sinh'
 ];
 
+export const GEMINI_MODELS = [
+  { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (Khuyên dùng - Nhanh & ổn định)' },
+  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (Thế hệ mới nhất)' },
+  { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash (Bản chuẩn)' },
+  { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro (Phân tích sâu sắc)' },
+  { value: 'gemini-pro', label: 'Gemini 1.0 Pro (Tương thích mọi tài khoản Google cũ)' }
+];
+
 export default function ApiKeyModal({ isOpen, onClose, onSave, currentSettings }: ApiKeyModalProps) {
   const [provider, setProvider] = useState<AiProvider>(currentSettings.provider || 'gemini');
   const [geminiApiKey, setGeminiApiKey] = useState(currentSettings.geminiApiKey || '');
   const [claudeApiKey, setClaudeApiKey] = useState(currentSettings.claudeApiKey || '');
+  const [geminiModel, setGeminiModel] = useState(currentSettings.geminiModel || 'gemini-2.0-flash');
   const [teachingMethod, setTeachingMethod] = useState(currentSettings.teachingMethod || TEACHING_METHODS[0]);
 
   useEffect(() => {
     setProvider(currentSettings.provider || 'gemini');
     setGeminiApiKey(currentSettings.geminiApiKey || '');
     setClaudeApiKey(currentSettings.claudeApiKey || '');
+    setGeminiModel(currentSettings.geminiModel || 'gemini-2.0-flash');
     setTeachingMethod(currentSettings.teachingMethod || TEACHING_METHODS[0]);
   }, [currentSettings, isOpen]);
 
@@ -40,6 +50,7 @@ export default function ApiKeyModal({ isOpen, onClose, onSave, currentSettings }
       provider,
       geminiApiKey: geminiApiKey.trim(),
       claudeApiKey: claudeApiKey.trim(),
+      geminiModel,
       teachingMethod
     });
     onClose();
@@ -169,7 +180,27 @@ export default function ApiKeyModal({ isOpen, onClose, onSave, currentSettings }
               onChange={(e) => setGeminiApiKey(e.target.value)}
               style={{ width: '100%', fontFamily: 'monospace', fontSize: 13, padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }}
             />
-            <div style={{ fontSize: 12, color: '#4a5568', marginTop: 6, lineHeight: 1.5 }}>
+            <div style={{ marginTop: 12 }}>
+              <label style={{ fontWeight: 600, color: '#334155', fontSize: 13, display: 'block', marginBottom: 4 }}>
+                Phiên bản mô hình Google Gemini
+              </label>
+              <select
+                value={geminiModel}
+                onChange={(e) => setGeminiModel(e.target.value)}
+                style={{ width: '100%', padding: '8px 10px', fontSize: 13, borderRadius: 6, border: '1px solid #cbd5e1' }}
+              >
+                {GEMINI_MODELS.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+              <div style={{ fontSize: 11, color: '#64748b', marginTop: 3 }}>
+                Hệ thống luôn tích hợp sẵn cơ chế tự động thử model thay thế (2.5 → 2.0 → 1.5 → Pro) nếu model được chọn gặp lỗi 404 không khả dụng.
+              </div>
+            </div>
+
+            <div style={{ fontSize: 12, color: '#4a5568', marginTop: 10, lineHeight: 1.5 }}>
               ⚡ <strong>Chế độ dự phòng thông minh:</strong> Khi nhập nhiều key, hệ thống sẽ tự động chuyển sang key tiếp theo nếu một key chạm ngưỡng giới hạn (429 / Quota Exceeded), giúp giáo án luôn được tạo trọn vẹn.<br />
               💡 Lấy key miễn phí không giới hạn trong 1 phút tại:{' '}
               <a

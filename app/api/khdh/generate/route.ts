@@ -24,7 +24,10 @@ export async function POST(req: NextRequest) {
       extraNotes = '',
       provider,
       customApiKey,
-      teachingMethod
+      teachingMethod,
+      sgkText = '',
+      khdhCuText = '',
+      geminiModel
     } = body;
 
     if (!subject || !grade || !lessonTitle) {
@@ -48,7 +51,10 @@ export async function POST(req: NextRequest) {
       extraNotes,
       provider,
       customApiKey,
-      teachingMethod
+      teachingMethod,
+      sgkText,
+      khdhCuText,
+      geminiModel
     });
 
     const id = `khdh_${Date.now()}`;
