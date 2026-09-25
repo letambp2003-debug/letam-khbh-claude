@@ -27,7 +27,10 @@ export async function POST(req: NextRequest) {
       durationPeriods = 1,
       requirement = '',
       extraNotes = '',
-      ppctUploadId = null
+      ppctUploadId = null,
+      provider,
+      customApiKey,
+      teachingMethod
     } = body;
 
     if (!subject || !grade || !lessonTitle) {
@@ -48,7 +51,10 @@ export async function POST(req: NextRequest) {
       ppctPeriods,
       durationPeriods: Number(durationPeriods) || 1,
       requirement,
-      extraNotes
+      extraNotes,
+      provider,
+      customApiKey,
+      teachingMethod
     });
 
     // Lưu DB là best-effort: nội dung do AI soạn ra đã sẵn sàng dùng ngay cả

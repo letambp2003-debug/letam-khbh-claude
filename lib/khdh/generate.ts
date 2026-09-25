@@ -1,29 +1,7 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { callAi, extractJsonFromText } from '@/lib/ai/provider';
 import { KHDH_SYSTEM_PROMPT, buildKhdhUserPrompt } from './prompt';
 import type { KhdhContent } from '@/types/khdh';
-
-let client: Anthropic | null = null;
-
-function getClient(): Anthropic {
-  if (!client) {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      throw new Error(
-        'Chưa cấu hình ANTHROPIC_API_KEY. Vui lòng thêm biến môi trường này trong Vercel Project Settings.'
-      );
-    }
-    client = new Anthropic({ apiKey });
-  }
-  return client;
-}
-
-function extractJson(text: string): string {
-  const trimmed = text.trim();
-  // Loại bỏ code fence nếu Claude vẫn bọc markdown
-  const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fenceMatch) return fenceMatch[1].trim();
-  return trimmed;
-}
+import type { AiProvider } from '@/types/extended';
 
 export async function generateKhdhContent(params: {
   schoolName: string;
@@ -37,28 +15,25 @@ export async function generateKhdhContent(params: {
   durationPeriods: number;
   requirement: string;
   extraNotes?: string;
+  provider?: AiProvider;
+  customApiKey?: string;
+  teachingMethod?: string;
 }): Promise<KhdhContent> {
-  const anthropic = getClient();
-  const model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5-20250929';
-
-  const message = await anthropic.messages.create({
-    model,
-    max_tokens: 8000,
-    system: KHDH_SYSTEM_PROMPT,
-    messages: [
-      {
-        role: 'user',
-        content: buildKhdhUserPrompt(params)
-      }
-    ]
-  });
-
-  const textBlock = message.content.find((block) => block.type === 'text');
-  if (!textBlock || textBlock.type !== 'text') {
-    throw new Error('AI không trả về nội dung văn bản hợp lệ.');
+  let promptText = buildKhdhUserPrompt(params);
+  if (params.teachingMethod) {
+    promptText += `\nĐẶC BIỆT: Hãy thiết kế các hoạt động theo phương pháp sư phạm: ${params.teachingMethod}.`;
   }
 
-  const jsonText = extractJson(textBlock.text);
+  const responseText = await callAi({
+    prompt: promptText,
+    systemPrompt: KHDH_SYSTEM_PROMPT,
+    provider: params.provider,
+    customApiKey: params.customApiKey,
+    maxTokens: 8000,
+    temperature: 0.35
+  });
+
+  const jsonText = extractJsonFromText(responseText);
   let parsed: KhdhContent;
   try {
     parsed = JSON.parse(jsonText);

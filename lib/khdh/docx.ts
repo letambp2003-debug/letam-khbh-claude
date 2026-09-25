@@ -229,6 +229,21 @@ function cellText(text: string, opts: { bold?: boolean; shading?: string } = {})
   });
 }
 
+function cellHeader(text: string, widthPercent?: number) {
+  return new TableCell({
+    width: widthPercent ? { size: widthPercent, type: WidthType.PERCENTAGE } : undefined,
+    verticalAlign: VerticalAlign.CENTER,
+    shading: { type: ShadingType.SOLID, color: 'D9E2F3', fill: 'D9E2F3' },
+    margins: { top: 60, bottom: 60, left: 90, right: 90 },
+    children: [
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text, bold: true, font: FONT, size: TABLE_SIZE })]
+      })
+    ]
+  });
+}
+
 function activityTable(steps: ActivityBlock['steps']) {
   const headerRow = new TableRow({
     tableHeader: true,
@@ -372,6 +387,213 @@ export async function buildKhdhDocxBuffer(content: KhdhContent): Promise<Buffer>
             // phải/trên/dưới 2cm — tiết kiệm giấy hơn mức lề "an toàn" thường thấy.
             margin: { top: 1134, bottom: 1134, left: 1701, right: 1134 },
             size: { width: 11906, height: 16838 } // A4 (twips)
+          }
+        },
+        children
+      }
+    ]
+  });
+
+  return Packer.toBuffer(doc);
+}
+
+import type { WorksheetPackage, Worksheet } from '@/types/extended';
+
+export async function buildWorksheetDocxBuffer(pkg: WorksheetPackage): Promise<Buffer> {
+  const children: (Paragraph | Table)[] = [];
+
+  for (let idx = 0; idx < pkg.sheets.length; idx++) {
+    const sheet = pkg.sheets[idx];
+
+    // Đầu trang thông tin học sinh
+    children.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { before: idx > 0 ? 300 : 0, after: 100, line: LINE_SINGLE.line, lineRule: LINE_SINGLE.lineRule },
+        pageBreakBefore: idx > 0,
+        children: [
+          new TextRun({
+            text: sheet.title.toUpperCase(),
+            bold: true,
+            font: FONT,
+            size: 28,
+            color: '1a365d'
+          })
+        ]
+      })
+    );
+
+    children.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 140, line: LINE_SINGLE.line, lineRule: LINE_SINGLE.lineRule },
+        children: [
+          new TextRun({
+            text: `Bài học: ${pkg.lessonTitle} · Môn: ${pkg.subject} ${pkg.grade}`,
+            italics: true,
+            font: FONT,
+            size: BODY_SIZE
+          })
+        ]
+      })
+    );
+
+    // Khung điền tên học sinh / nhóm
+    children.push(
+      new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        borders: {
+          top: { style: BorderStyle.SINGLE, size: 2, color: '888888' },
+          bottom: { style: BorderStyle.SINGLE, size: 2, color: '888888' },
+          left: { style: BorderStyle.SINGLE, size: 2, color: '888888' },
+          right: { style: BorderStyle.SINGLE, size: 2, color: '888888' },
+          insideHorizontal: { style: BorderStyle.NONE, size: 0, color: 'auto' },
+          insideVertical: { style: BorderStyle.NONE, size: 0, color: 'auto' }
+        },
+        rows: [
+          new TableRow({
+            children: [
+              new TableCell({
+                margins: { top: 60, bottom: 60, left: 100, right: 100 },
+                children: [
+                  p(`Họ và tên học sinh / Tên nhóm: .............................................................. Lớp: .............`),
+                  p(`Mục tiêu/YCCĐ cần đạt: ${sheet.targetCompetency}`, { italics: true }),
+                  p(`Hình thức làm việc: ${sheet.groupMode === 'group' ? 'Nhóm 4 - 6 HS' : sheet.groupMode === 'pair' ? 'Cặp đôi' : 'Cá nhân'}`)
+                ]
+              })
+            ]
+          })
+        ]
+      })
+    );
+
+    children.push(new Paragraph({ spacing: { after: 150 } }));
+
+    // Danh sách nhiệm vụ
+    for (const task of sheet.tasks) {
+      children.push(
+        new Paragraph({
+          spacing: { before: 140, after: 60, line: LINE_SINGLE.line, lineRule: LINE_SINGLE.lineRule },
+          children: [
+            new TextRun({
+              text: `${task.title} (${task.score} điểm)`,
+              bold: true,
+              font: FONT,
+              size: BODY_SIZE,
+              color: '2b6cb0'
+            })
+          ]
+        })
+      );
+
+      if (task.instructions) {
+        children.push(p(`Hướng dẫn: ${task.instructions}`, { italics: true }));
+      }
+
+      children.push(...contentNodes(task.questionContent));
+
+      // Vùng trả lời của học sinh
+      if (task.answerSpaceType === 'box') {
+        children.push(
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            borders: {
+              top: { style: BorderStyle.SINGLE, size: 2, color: 'aaaaaa' },
+              bottom: { style: BorderStyle.SINGLE, size: 2, color: 'aaaaaa' },
+              left: { style: BorderStyle.SINGLE, size: 2, color: 'aaaaaa' },
+              right: { style: BorderStyle.SINGLE, size: 2, color: 'aaaaaa' }
+            },
+            rows: [
+              new TableRow({
+                children: [
+                  new TableCell({
+                    margins: { top: 120, bottom: 600, left: 100, right: 100 },
+                    children: [p('Khu vực làm bài / Trình bày câu trả lời của học sinh:', { italics: true, color: '888888' })]
+                  })
+                ]
+              })
+            ]
+          })
+        );
+      } else {
+        // Dòng kẻ chấm để viết tay
+        for (let l = 0; l < 4; l++) {
+          children.push(
+            new Paragraph({
+              spacing: { after: 60 },
+              children: [
+                new TextRun({
+                  text: '..........................................................................................................................................................................',
+                  color: 'aaaaaa',
+                  font: FONT,
+                  size: TABLE_SIZE
+                })
+              ]
+            })
+          );
+        }
+      }
+
+      children.push(new Paragraph({ spacing: { after: 100 } }));
+    }
+
+    // Bảng Rubric đánh giá (nếu có)
+    if (sheet.rubric && sheet.rubric.length > 0) {
+      children.push(
+        new Paragraph({
+          spacing: { before: 160, after: 80 },
+          children: [new TextRun({ text: 'BẢNG TIÊU CHÍ ĐÁNH GIÁ (RUBRIC)', bold: true, font: FONT, size: BODY_SIZE })]
+        })
+      );
+
+      const rubricHeader = new TableRow({
+        tableHeader: true,
+        children: [
+          cellHeader('Tiêu chí', 30),
+          cellHeader('Mức Tốt', 25),
+          cellHeader('Mức Đạt', 25),
+          cellHeader('Cần cố gắng', 20)
+        ]
+      });
+
+      const rubricRows = sheet.rubric.map(
+        (r) =>
+          new TableRow({
+            children: [cellText(r.criteria), cellText(r.excellent), cellText(r.good), cellText(r.needsImprovement)]
+          })
+      );
+
+      children.push(
+        new Table({
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          borders: {
+            top: { style: BorderStyle.SINGLE, size: 2, color: '999999' },
+            bottom: { style: BorderStyle.SINGLE, size: 2, color: '999999' },
+            left: { style: BorderStyle.SINGLE, size: 2, color: '999999' },
+            right: { style: BorderStyle.SINGLE, size: 2, color: '999999' },
+            insideHorizontal: { style: BorderStyle.SINGLE, size: 2, color: '999999' },
+            insideVertical: { style: BorderStyle.SINGLE, size: 2, color: '999999' }
+          },
+          rows: [rubricHeader, ...rubricRows]
+        })
+      );
+    }
+  }
+
+  const doc = new Document({
+    styles: {
+      default: {
+        document: {
+          run: { font: FONT, size: BODY_SIZE }
+        }
+      }
+    },
+    sections: [
+      {
+        properties: {
+          page: {
+            margin: { top: 1134, bottom: 1134, left: 1440, right: 1134 },
+            size: { width: 11906, height: 16838 } // A4
           }
         },
         children

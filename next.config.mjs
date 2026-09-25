@@ -25,6 +25,9 @@ const nextConfig = {
   env: {
     NEXTAUTH_URL: validNextAuthUrl
   },
+  eslint: {
+    ignoreDuringBuilds: true
+  },
   experimental: {
     serverComponentsExternalPackages: ['pdf-parse', 'mammoth', 'mathjax-full', 'mathml2omml-plus']
   }

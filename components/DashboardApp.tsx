@@ -1,21 +1,21 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { SUBJECTS, GRADES } from '@/lib/constants';
 import LessonTable from '@/components/LessonTable';
 import KhdhPreview from '@/components/KhdhPreview';
+import WorksheetView from '@/components/WorksheetView';
+import NlsSlideView from '@/components/NlsSlideView';
+import InteractiveQuizGame from '@/components/InteractiveQuizGame';
+import ApiKeyModal, { TEACHING_METHODS } from '@/components/ApiKeyModal';
 import type { Lesson, KhdhContent } from '@/types/khdh';
+import type { WorksheetPackage, NlsMap, SlideDeck, QuizPackage, UserAiSettings } from '@/types/extended';
 
 type Step = 'upload' | 'review' | 'preview';
+type ActiveTab = 'khdh' | 'worksheet' | 'nls_slide' | 'quiz';
 
-// Vercel giới hạn cứng 4.5MB cho request body của mọi Serverless Function
-// (Hobby lẫn Pro) — chặn sớm ở client với ngưỡng an toàn hơn (đa phần
-// Phụ lục I dạng .docx/.pdf thuần bảng chữ chỉ vài trăm KB; file to thường do
-// nhúng ảnh/nền không cần thiết).
 const MAX_UPLOAD_MB = 4;
 
-/** Đọc JSON response an toàn: một số lỗi hạ tầng (413, 502...) trả về HTML/text
- * thay vì JSON, nếu gọi res.json() trực tiếp sẽ ném lỗi parse khó hiểu. */
 async function safeJson(res: Response): Promise<any> {
   const text = await res.text();
   if (!text) return {};
@@ -28,9 +28,11 @@ async function safeJson(res: Response): Promise<any> {
 
 export default function DashboardApp({ userEmail }: { userEmail: string }) {
   const [step, setStep] = useState<Step>('upload');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('khdh');
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
 
+  // Dữ liệu Bước 1 & Bước 2
   const [subject, setSubject] = useState(SUBJECTS[0]);
   const [grade, setGrade] = useState(GRADES[0]);
   const [dragOver, setDragOver] = useState(false);
@@ -46,10 +48,54 @@ export default function DashboardApp({ userEmail }: { userEmail: string }) {
   const [teacherName, setTeacherName] = useState('');
   const [extraNotes, setExtraNotes] = useState('');
 
-  const [generating, setGenerating] = useState(false);
+  // Dữ liệu KHDH
+  const [generatingKhdh, setGeneratingKhdh] = useState(false);
   const [khdhId, setKhdhId] = useState<string | null>(null);
   const [content, setContent] = useState<KhdhContent | null>(null);
-  const [exporting, setExporting] = useState(false);
+  const [exportingKhdh, setExportingKhdh] = useState(false);
+
+  // Dữ liệu Phiếu học tập
+  const [worksheetPackage, setWorksheetPackage] = useState<WorksheetPackage | null>(null);
+  const [generatingWorksheet, setGeneratingWorksheet] = useState(false);
+
+  // Dữ liệu Ma trận NLS & Slide
+  const [nlsMap, setNlsMap] = useState<NlsMap | null>(null);
+  const [slideDeck, setSlideDeck] = useState<SlideDeck | null>(null);
+  const [generatingNlsSlide, setGeneratingNlsSlide] = useState(false);
+
+  // Dữ liệu Ngân hàng câu hỏi & Trò chơi
+  const [quizPackage, setQuizPackage] = useState<QuizPackage | null>(null);
+  const [generatingQuiz, setGeneratingQuiz] = useState(false);
+
+  // Cài đặt AI & Phương pháp
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [userSettings, setUserSettings] = useState<UserAiSettings>({
+    provider: 'gemini',
+    teachingMethod: TEACHING_METHODS[0]
+  });
+
+  // Tải cài đặt từ localStorage khi mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('khdh_user_settings');
+      if (saved) {
+        setUserSettings(JSON.parse(saved));
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  function handleSaveSettings(newSettings: UserAiSettings) {
+    setUserSettings(newSettings);
+    try {
+      localStorage.setItem('khdh_user_settings', JSON.stringify(newSettings));
+    } catch {
+      // ignore
+    }
+  }
+
+  const selectedLesson = selectedIndex !== null ? lessons[selectedIndex] : null;
 
   async function handleFile(file: File) {
     setError(null);
@@ -59,7 +105,7 @@ export default function DashboardApp({ userEmail }: { userEmail: string }) {
     if (sizeMb > MAX_UPLOAD_MB) {
       setError(
         `File "${file.name}" nặng ${sizeMb.toFixed(1)}MB, vượt giới hạn ${MAX_UPLOAD_MB}MB cho phép. ` +
-          'Hãy xuất lại Phụ lục I dưới dạng file .docx chỉ chứa bảng chữ (bỏ ảnh nền/ảnh chèn không cần thiết), ' +
+          'Hãy xuất lại Phụ lục I dưới dạng file .docx chỉ chứa bảng chữ, ' +
           'hoặc tách file theo từng học kỳ rồi tải lên từng phần.'
       );
       return;
@@ -104,18 +150,18 @@ export default function DashboardApp({ userEmail }: { userEmail: string }) {
     setSelectedIndex(lessons.length);
   }
 
-  async function handleGenerate() {
-    if (selectedIndex === null) return;
-    const lesson = lessons[selectedIndex];
-    if (!lesson.title.trim()) {
+  // Sinh KHDH
+  async function handleGenerateKhdh() {
+    if (!selectedLesson) return;
+    if (!selectedLesson.title.trim()) {
       setError('Vui lòng nhập Tên bài học trước khi tạo KHDH.');
       return;
     }
     setError(null);
-    setGenerating(true);
+    setGeneratingKhdh(true);
     setContent(null);
     try {
-      const periodsCount = (lesson.periods.match(/\d+/g) || ['1']).length || 1;
+      const periodsCount = (selectedLesson.periods.match(/\d+/g) || ['1']).length || 1;
       const res = await fetch('/api/khdh/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -125,13 +171,19 @@ export default function DashboardApp({ userEmail }: { userEmail: string }) {
           teacherName,
           subject,
           grade,
-          lessonTitle: lesson.title,
-          week: lesson.week,
-          ppctPeriods: lesson.periods,
+          lessonTitle: selectedLesson.title,
+          week: selectedLesson.week,
+          ppctPeriods: selectedLesson.periods,
           durationPeriods: periodsCount,
-          requirement: lesson.requirement,
+          requirement: selectedLesson.requirement,
           extraNotes,
-          ppctUploadId: uploadId
+          ppctUploadId: uploadId,
+          provider: userSettings.provider,
+          customApiKey:
+            userSettings.provider === 'gemini'
+              ? userSettings.geminiApiKey
+              : userSettings.claudeApiKey,
+          teachingMethod: userSettings.teachingMethod
         })
       });
       const data = await safeJson(res);
@@ -139,16 +191,118 @@ export default function DashboardApp({ userEmail }: { userEmail: string }) {
       setKhdhId(data.id);
       setContent(data.content);
       setStep('preview');
+      setActiveTab('khdh');
     } catch (e: any) {
       setError(e.message);
     } finally {
-      setGenerating(false);
+      setGeneratingKhdh(false);
     }
   }
 
-  async function handleExport() {
+  // Sinh Phiếu học tập
+  async function handleGenerateWorksheet() {
+    if (!selectedLesson) return;
+    setError(null);
+    setGeneratingWorksheet(true);
+    try {
+      const periodsCount = (selectedLesson.periods.match(/\d+/g) || ['1']).length || 1;
+      const res = await fetch('/api/worksheet/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subject,
+          grade,
+          lessonTitle: selectedLesson.title,
+          requirement: selectedLesson.requirement,
+          durationPeriods: periodsCount,
+          provider: userSettings.provider,
+          customApiKey:
+            userSettings.provider === 'gemini'
+              ? userSettings.geminiApiKey
+              : userSettings.claudeApiKey,
+          teachingMethod: userSettings.teachingMethod
+        })
+      });
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error(data.error || 'Có lỗi khi tạo Phiếu học tập.');
+      setWorksheetPackage(data.worksheetPackage);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setGeneratingWorksheet(false);
+    }
+  }
+
+  // Sinh Ma trận NLS & Slide
+  async function handleGenerateNlsSlide() {
+    if (!selectedLesson) return;
+    setError(null);
+    setGeneratingNlsSlide(true);
+    try {
+      const periodsCount = (selectedLesson.periods.match(/\d+/g) || ['1']).length || 1;
+      const res = await fetch('/api/nls-slide/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subject,
+          grade,
+          lessonTitle: selectedLesson.title,
+          requirement: selectedLesson.requirement,
+          durationPeriods: periodsCount,
+          provider: userSettings.provider,
+          customApiKey:
+            userSettings.provider === 'gemini'
+              ? userSettings.geminiApiKey
+              : userSettings.claudeApiKey,
+          teachingMethod: userSettings.teachingMethod
+        })
+      });
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error(data.error || 'Có lỗi khi tạo Ma trận & Slide.');
+      setNlsMap(data.nlsMap);
+      setSlideDeck(data.slideDeck);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setGeneratingNlsSlide(false);
+    }
+  }
+
+  // Sinh Ngân hàng câu hỏi & Trò chơi
+  async function handleGenerateQuiz() {
+    if (!selectedLesson) return;
+    setError(null);
+    setGeneratingQuiz(true);
+    try {
+      const res = await fetch('/api/quiz/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subject,
+          grade,
+          lessonTitle: selectedLesson.title,
+          requirement: selectedLesson.requirement,
+          provider: userSettings.provider,
+          customApiKey:
+            userSettings.provider === 'gemini'
+              ? userSettings.geminiApiKey
+              : userSettings.claudeApiKey
+        })
+      });
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error(data.error || 'Có lỗi khi tạo Ngân hàng câu hỏi & Trò chơi.');
+      setQuizPackage(data.quizPackage);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setGeneratingQuiz(false);
+    }
+  }
+
+  // Xuất KHDH sang Word
+  async function handleExportKhdh() {
     if (!khdhId && !content) return;
-    setExporting(true);
+    setExportingKhdh(true);
     setError(null);
     try {
       const res = await fetch('/api/khdh/export', {
@@ -172,14 +326,45 @@ export default function DashboardApp({ userEmail }: { userEmail: string }) {
     } catch (e: any) {
       setError(e.message);
     } finally {
-      setExporting(false);
+      setExportingKhdh(false);
     }
   }
 
   return (
     <div>
+      {/* Nút cài đặt trên góc phải */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <button
+          className="btn btn-secondary"
+          style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}
+          onClick={() => setShowSettingsModal(true)}
+        >
+          <span>⚙ Cài đặt AI &amp; Phương pháp</span>
+          <span
+            style={{
+              background: '#ebf8ff',
+              color: '#2b6cb0',
+              padding: '2px 8px',
+              borderRadius: 10,
+              fontSize: 11,
+              fontWeight: 700
+            }}
+          >
+            {userSettings.provider === 'gemini' ? 'Gemini AI' : 'Claude AI'}
+          </span>
+        </button>
+      </div>
+
+      <ApiKeyModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        onSave={handleSaveSettings}
+        currentSettings={userSettings}
+      />
+
       {error && <div className="error-box">{error}</div>}
 
+      {/* BƯỚC 1: TẢI FILE */}
       <div className="card">
         <h2>Bước 1 · Chọn Môn học - Khối lớp &amp; nạp dữ liệu PPCT</h2>
         <div className="grid-2" style={{ marginBottom: 14 }}>
@@ -226,8 +411,7 @@ export default function DashboardApp({ userEmail }: { userEmail: string }) {
                 Kéo thả file Phụ lục I / PPCT (.docx hoặc .pdf) vào đây
               </div>
               <div className="muted">
-                hoặc bấm để chọn file từ máy tính · tối đa {MAX_UPLOAD_MB}MB · ưu tiên .docx để bóc tách chính xác
-                nhất
+                hoặc bấm để chọn file từ máy tính · tối đa {MAX_UPLOAD_MB}MB · ưu tiên .docx để bóc tách chính xác nhất
               </div>
             </>
           )}
@@ -261,6 +445,11 @@ export default function DashboardApp({ userEmail }: { userEmail: string }) {
               setUploadId(null);
               setLessons([]);
               setSelectedIndex(null);
+              setContent(null);
+              setWorksheetPackage(null);
+              setNlsMap(null);
+              setSlideDeck(null);
+              setQuizPackage(null);
               setStep('upload');
               if (fileInputRef.current) fileInputRef.current.value = '';
             }}
@@ -270,9 +459,10 @@ export default function DashboardApp({ userEmail }: { userEmail: string }) {
         )}
       </div>
 
+      {/* BƯỚC 2: CHỌN BÀI HỌC */}
       {(step === 'review' || step === 'preview') && (
         <div className="card">
-          <h2>Bước 2 · Xác nhận danh sách bài học &amp; chọn bài để soạn KHDH</h2>
+          <h2>Bước 2 · Xác nhận danh sách bài học &amp; chọn bài để triển khai</h2>
           <LessonTable
             lessons={lessons}
             selectedIndex={selectedIndex}
@@ -283,7 +473,7 @@ export default function DashboardApp({ userEmail }: { userEmail: string }) {
             + Thêm dòng bài học thủ công
           </button>
 
-          <div className="section-title">Thông tin hồ sơ (tuỳ chọn, hiển thị trên KHDH)</div>
+          <div className="section-title">Thông tin hồ sơ giáo viên (hiển thị trên bìa giáo án)</div>
           <div className="grid-2">
             <div>
               <label className="muted">Tên trường</label>
@@ -299,39 +489,181 @@ export default function DashboardApp({ userEmail }: { userEmail: string }) {
             <input type="text" value={teacherName} onChange={(e) => setTeacherName(e.target.value)} />
           </div>
           <div style={{ marginTop: 12 }}>
-            <label className="muted">Ghi chú thêm cho AI (không bắt buộc)</label>
+            <label className="muted">Ghi chú thêm cho AI</label>
             <textarea
               rows={2}
-              placeholder="Ví dụ: nhấn mạnh thí nghiệm thực hành, dùng bối cảnh địa phương..."
+              placeholder="Ví dụ: áp dụng phương pháp dạy học STEM, gắn với bài toán thực tế nông nghiệp..."
               value={extraNotes}
               onChange={(e) => setExtraNotes(e.target.value)}
             />
           </div>
 
-          <button
-            className="btn btn-primary"
-            style={{ marginTop: 16 }}
-            disabled={selectedIndex === null || generating}
-            onClick={handleGenerate}
-          >
-            {generating && <span className="spinner" />}
-            {generating ? 'Đang soạn KHDH bằng AI...' : 'Tạo KHDH (Form V11-2)'}
-          </button>
+          <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-primary"
+              disabled={selectedIndex === null || generatingKhdh}
+              onClick={handleGenerateKhdh}
+            >
+              {generatingKhdh && <span className="spinner" />}
+              {generatingKhdh ? 'Đang soạn KHDH...' : '📄 Soạn KHDH (Form V11-2)'}
+            </button>
+          </div>
         </div>
       )}
 
-      {step === 'preview' && content && (
+      {/* BƯỚC 3: HỆ THỐNG PHÂN HỆ ĐẦY ĐỦ (MULTI-TAB WORKSPACE) */}
+      {(step === 'preview' || content || worksheetPackage || nlsMap || quizPackage) && (
         <div className="card">
-          <h2>Bước 3 · Xem trước &amp; xuất file Word</h2>
-          <div style={{ marginBottom: 16 }}>
-            <button className="btn btn-primary" disabled={exporting} onClick={handleExport}>
-              {exporting && <span className="spinner" />}
-              {exporting ? 'Đang tạo file...' : '⬇ Xuất File Word (.docx)'}
+          <h2>Bước 3 · Không gian Triển khai Bộ tài liệu Đầy đủ</h2>
+
+          {/* Thanh Tab Chuyển Phân Hệ */}
+          <div
+            style={{
+              display: 'flex',
+              gap: 8,
+              borderBottom: '2px solid #e2e8f0',
+              paddingBottom: 8,
+              marginBottom: 20,
+              flexWrap: 'wrap'
+            }}
+          >
+            <button
+              className={`btn ${activeTab === 'khdh' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ fontSize: 14, padding: '8px 16px' }}
+              onClick={() => setActiveTab('khdh')}
+            >
+              📄 1. Kế hoạch bài dạy (KHDH 5512)
+            </button>
+
+            <button
+              className={`btn ${activeTab === 'worksheet' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ fontSize: 14, padding: '8px 16px' }}
+              onClick={() => setActiveTab('worksheet')}
+            >
+              📝 2. Phiếu học tập (Worksheet) {worksheetPackage ? '✓' : ''}
+            </button>
+
+            <button
+              className={`btn ${activeTab === 'nls_slide' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ fontSize: 14, padding: '8px 16px' }}
+              onClick={() => setActiveTab('nls_slide')}
+            >
+              📊 3. Ma trận NLS &amp; Slide {nlsMap ? '✓' : ''}
+            </button>
+
+            <button
+              className={`btn ${activeTab === 'quiz' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ fontSize: 14, padding: '8px 16px' }}
+              onClick={() => setActiveTab('quiz')}
+            >
+              🎮 4. Trò chơi &amp; Câu hỏi {quizPackage ? '✓' : ''}
             </button>
           </div>
-          <div style={{ border: '1px solid #e2e6ee', borderRadius: 10, padding: 20, background: '#fff' }}>
-            <KhdhPreview content={content} />
-          </div>
+
+          {/* PHÂN HỆ 1: KHDH 5512 */}
+          {activeTab === 'khdh' && (
+            <div>
+              {content ? (
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+                    <button className="btn btn-primary" disabled={exportingKhdh} onClick={handleExportKhdh}>
+                      {exportingKhdh && <span className="spinner" />}
+                      {exportingKhdh ? 'Đang tạo file Word...' : '⬇ Xuất File Word (.docx) KHDH'}
+                    </button>
+                  </div>
+                  <div style={{ border: '1px solid #e2e6ee', borderRadius: 10, padding: 20, background: '#fff' }}>
+                    <KhdhPreview content={content} onContentChange={setContent} />
+                  </div>
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '30px 20px', background: '#f8fafc', borderRadius: 8 }}>
+                  <p className="muted" style={{ marginBottom: 14 }}>
+                    Chưa tạo Kế hoạch dạy học cho bài học này.
+                  </p>
+                  <button
+                    className="btn btn-primary"
+                    disabled={generatingKhdh || selectedIndex === null}
+                    onClick={handleGenerateKhdh}
+                  >
+                    {generatingKhdh && <span className="spinner" />}
+                    {generatingKhdh ? 'Đang soạn KHDH...' : '⚡ Bấm để Tạo KHDH (Chuẩn 5512)'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* PHÂN HỆ 2: PHIẾU HỌC TẬP (WORKSHEETS) */}
+          {activeTab === 'worksheet' && (
+            <div>
+              {worksheetPackage ? (
+                <WorksheetView packageData={worksheetPackage} onUpdatePackage={setWorksheetPackage} />
+              ) : (
+                <div style={{ textAlign: 'center', padding: '30px 20px', background: '#f8fafc', borderRadius: 8 }}>
+                  <p className="muted" style={{ marginBottom: 14 }}>
+                    Hệ thống sẽ tự động thiết kế 3 Phiếu học tập (Khám phá kiến thức, Luyện tập nhóm, Vận dụng thực tế)
+                    kèm gợi ý đáp án và bảng rubric chấm điểm cho bài này.
+                  </p>
+                  <button
+                    className="btn btn-primary"
+                    disabled={generatingWorksheet || selectedIndex === null}
+                    onClick={handleGenerateWorksheet}
+                  >
+                    {generatingWorksheet && <span className="spinner" />}
+                    {generatingWorksheet ? 'Đang tạo hệ thống Phiếu học tập...' : '⚡ Tạo Hệ thống Phiếu học tập'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* PHÂN HỆ 3: MA TRẬN NLS & SLIDE PROMPTS */}
+          {activeTab === 'nls_slide' && (
+            <div>
+              {nlsMap && slideDeck ? (
+                <NlsSlideView nlsMap={nlsMap} slideDeck={slideDeck} />
+              ) : (
+                <div style={{ textAlign: 'center', padding: '30px 20px', background: '#f8fafc', borderRadius: 8 }}>
+                  <p className="muted" style={{ marginBottom: 14 }}>
+                    Tự động phân rã Ma trận Năng lực - Phẩm chất theo 4 hoạt động và gợi ý bộ Slide bài giảng (kèm prompt
+                    tạo ảnh cho Canva/PowerPoint).
+                  </p>
+                  <button
+                    className="btn btn-primary"
+                    disabled={generatingNlsSlide || selectedIndex === null}
+                    onClick={handleGenerateNlsSlide}
+                  >
+                    {generatingNlsSlide && <span className="spinner" />}
+                    {generatingNlsSlide ? 'Đang phân tích Ma trận & Slide...' : '⚡ Tạo Ma trận NLS & Kịch bản Slide'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* PHÂN HỆ 4: NGÂN HÀNG CÂU HỎI & TRÒ CHƠI LỚP HỌC */}
+          {activeTab === 'quiz' && (
+            <div>
+              {quizPackage ? (
+                <InteractiveQuizGame quizPackage={quizPackage} />
+              ) : (
+                <div style={{ textAlign: 'center', padding: '30px 20px', background: '#f8fafc', borderRadius: 8 }}>
+                  <p className="muted" style={{ marginBottom: 14 }}>
+                    Tạo ngân hàng 8-10 câu hỏi trắc nghiệm 4 mức độ tư duy kèm chế độ Trò chơi tương tác / Vòng quay bốc
+                    thăm để giáo viên trình chiếu trên lớp học.
+                  </p>
+                  <button
+                    className="btn btn-primary"
+                    disabled={generatingQuiz || selectedIndex === null}
+                    onClick={handleGenerateQuiz}
+                  >
+                    {generatingQuiz && <span className="spinner" />}
+                    {generatingQuiz ? 'Đang sinh bộ câu hỏi & mini game...' : '⚡ Tạo Ngân hàng câu hỏi & Trò chơi'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
