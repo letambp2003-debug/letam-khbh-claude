@@ -40,6 +40,8 @@ export default function DashboardApp({ userEmail = 'Giáo viên' }: { userEmail?
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [uploadId, setUploadId] = useState<string | null>(null);
+  const [inputMode, setInputMode] = useState<'upload' | 'paste'>('upload');
+  const [pasteText, setPasteText] = useState('');
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
@@ -122,11 +124,54 @@ export default function DashboardApp({ userEmail = 'Giáo viên' }: { userEmail?
       const data = await safeJson(res);
       if (!res.ok) throw new Error(data.error || 'Có lỗi khi xử lý file.');
 
+      const cleanWarnings = Array.from(new Set(data.warnings ?? [])) as string[];
       setUploadId(data.uploadId);
-      setLessons(data.lessons);
-      setWarnings(data.warnings ?? []);
-      setSelectedIndex(data.lessons.length > 0 ? 0 : null);
-      setStep('review');
+      setLessons(data.lessons || []);
+      setWarnings(cleanWarnings);
+
+      if (data.lessons && data.lessons.length > 0) {
+        setSelectedIndex(0);
+        setStep('review');
+      } else {
+        setSelectedIndex(null);
+        setError('Không nhận diện được dòng bài học nào từ file này. Thầy/cô vui lòng kiểm tra lại file hoặc chuyển sang mục "Dán văn bản / Bảng PPCT" để dán trực tiếp.');
+      }
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handlePasteParse() {
+    if (!pasteText.trim()) {
+      setError('Vui lòng nhập hoặc dán nội dung danh sách bài học.');
+      return;
+    }
+    setError(null);
+    setWarnings([]);
+    setUploading(true);
+    try {
+      const res = await fetch('/api/ppct/parse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: pasteText, subject, grade })
+      });
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error(data.error || 'Có lỗi khi xử lý dữ liệu.');
+
+      const cleanWarnings = Array.from(new Set(data.warnings ?? [])) as string[];
+      setUploadId(data.uploadId);
+      setLessons(data.lessons || []);
+      setWarnings(cleanWarnings);
+
+      if (data.lessons && data.lessons.length > 0) {
+        setSelectedIndex(0);
+        setStep('review');
+      } else {
+        setSelectedIndex(null);
+        setError('Không nhận diện được bài học nào. Thầy/cô hãy định dạng mỗi dòng 1 bài hoặc copy các dòng từ bảng Excel/Word dán vào.');
+      }
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -439,48 +484,100 @@ export default function DashboardApp({ userEmail = 'Giáo viên' }: { userEmail?
           </div>
         </div>
 
-        <div
-          className={`upload-box${dragOver ? ' dragover' : ''}`}
-          onClick={() => fileInputRef.current?.click()}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragOver(true);
-          }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={onDrop}
-        >
-          {uploading ? (
-            <span>
-              <span className="spinner" style={{ borderTopColor: '#2454ff', marginRight: 8 }} /> Đang bóc
-              tách bảng Phụ lục I...
-            </span>
-          ) : (
-            <>
-              <div style={{ fontWeight: 600, marginBottom: 4 }}>
-                Kéo thả file Phụ lục I / PPCT (.docx hoặc .pdf) vào đây
-              </div>
-              <div className="muted">
-                hoặc bấm để chọn file từ máy tính · tối đa {MAX_UPLOAD_MB}MB · ưu tiên .docx để bóc tách chính xác nhất
-              </div>
-            </>
-          )}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".docx,.pdf"
-            hidden
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleFile(file);
-            }}
-          />
+        {/* Toggle hình thức nạp PPCT */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+          <button
+            type="button"
+            className={inputMode === 'upload' ? 'btn btn-primary' : 'btn btn-secondary'}
+            style={{ fontSize: 13, padding: '6px 14px', borderRadius: 6 }}
+            onClick={() => setInputMode('upload')}
+          >
+            📁 Tải file (.docx hoặc .pdf)
+          </button>
+          <button
+            type="button"
+            className={inputMode === 'paste' ? 'btn btn-primary' : 'btn btn-secondary'}
+            style={{ fontSize: 13, padding: '6px 14px', borderRadius: 6 }}
+            onClick={() => setInputMode('paste')}
+          >
+            📋 Dán nội dung / Bảng PPCT trực tiếp
+          </button>
         </div>
+
+        {inputMode === 'upload' ? (
+          <div
+            className={`upload-box${dragOver ? ' dragover' : ''}`}
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={onDrop}
+          >
+            {uploading ? (
+              <span>
+                <span className="spinner" style={{ borderTopColor: '#2454ff', marginRight: 8 }} /> Đang bóc
+                tách bảng Phụ lục I...
+              </span>
+            ) : (
+              <>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                  Kéo thả file Phụ lục I / PPCT (.docx hoặc .pdf) vào đây
+                </div>
+                <div className="muted">
+                  hoặc bấm để chọn file từ máy tính · tối đa {MAX_UPLOAD_MB}MB · ưu tiên .docx để bóc tách chính xác nhất
+                </div>
+              </>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".docx,.pdf"
+              hidden
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFile(file);
+              }}
+            />
+          </div>
+        ) : (
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: 14 }}>
+            <label className="muted" style={{ display: 'block', marginBottom: 6, fontWeight: 600, color: '#334155' }}>
+              Dán danh sách bài học (Copy từ bảng Excel, Word hoặc văn bản tự do):
+            </label>
+            <textarea
+              rows={5}
+              style={{ width: '100%', fontFamily: 'monospace', fontSize: 13, padding: 10, borderRadius: 6, border: '1px solid #cbd5e1' }}
+              placeholder={`Thầy/cô có thể copy trực tiếp các hàng từ Excel/Word và dán vào đây, ví dụ:\nBài 1. Mệnh đề toán học\t3\tTuần 1\nBài 2. Tập hợp và các phép toán\t4\tTuần 2, 3\n\nHoặc mỗi dòng 1 bài học:\nBài 1. Căn bậc hai - 3 tiết - Tuần 1\nBài 2. Căn bậc ba - 2 tiết - Tuần 2`}
+              value={pasteText}
+              onChange={(e) => setPasteText(e.target.value)}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={uploading || !pasteText.trim()}
+                onClick={handlePasteParse}
+                style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}
+              >
+                {uploading ? (
+                  <>
+                    <span className="spinner" style={{ borderTopColor: '#fff', marginRight: 4 }} /> Đang xử lý...
+                  </>
+                ) : (
+                  '⚡ Bóc tách danh sách bài học'
+                )}
+              </button>
+            </div>
+          </div>
+        )}
 
         {warnings.length > 0 && (
           <div style={{ marginTop: 14 }}>
             {warnings.map((w, i) => (
-              <div key={i} className="error-box" style={{ background: '#fff8e6', color: '#8a6d00', borderColor: '#f5e2a3' }}>
-                ⚠ {w}
+              <div key={i} className="error-box" style={{ background: '#fffbeb', color: '#92400e', borderColor: '#fde68a', marginBottom: 8, fontSize: 13 }}>
+                💡 {w}
               </div>
             ))}
           </div>
@@ -503,7 +600,7 @@ export default function DashboardApp({ userEmail = 'Giáo viên' }: { userEmail?
               if (fileInputRef.current) fileInputRef.current.value = '';
             }}
           >
-            ↺ Đặt lại, tải file PPCT khác
+            ↺ Đặt lại, nạp lại dữ liệu PPCT khác
           </button>
         )}
       </div>
@@ -511,7 +608,17 @@ export default function DashboardApp({ userEmail = 'Giáo viên' }: { userEmail?
       {/* BƯỚC 2: CHỌN BÀI HỌC */}
       {(step === 'review' || step === 'preview') && (
         <div className="card">
-          <h2>Bước 2 · Xác nhận danh sách bài học &amp; chọn bài để triển khai</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+            <h2 style={{ margin: 0 }}>Bước 2 · Xác nhận danh sách bài học &amp; chọn bài để triển khai</h2>
+            <span style={{ fontSize: 13, background: '#e6fffa', color: '#234e52', padding: '3px 12px', borderRadius: 14, fontWeight: 600, border: '1px solid #b2f5ea' }}>
+              ✓ Đã nạp {lessons.length} bài học
+            </span>
+          </div>
+
+          <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', padding: '10px 14px', borderRadius: 8, marginBottom: 14, fontSize: 13, color: '#1e40af' }}>
+            💡 <strong>Lưu ý:</strong> Cột <em>Yêu cầu cần đạt (YCCĐ)</em> có thể để trống. Khi tạo KHDH, AI sẽ tự động tra cứu chuẩn kiến thức – năng lực môn {subject} lớp {grade} theo <strong>Chương trình GDPT 2018</strong> của Bộ GD&amp;ĐT. Thầy/cô có thể sửa trực tiếp nội dung trong bảng nếu cần.
+          </div>
+
           <LessonTable
             lessons={lessons}
             selectedIndex={selectedIndex}
